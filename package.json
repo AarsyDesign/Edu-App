@@ -9,6 +9,7 @@
     "preview": "astro preview",
     "test": "node --test test/*.test.ts",
     "design:lint": "npx -y @google/design.md lint DESIGN.md",
+    "smoke:auth": "node scripts/smoke-auth.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

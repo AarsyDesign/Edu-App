@@ -10,7 +10,7 @@
  */
 import { PGlite } from "@electric-sql/pglite";
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -119,6 +119,11 @@ export async function getDb(): Promise<Db> {
 
   const memory = process.env.PGLITE_MODE === "memory";
   const dir = process.env.PGLITE_DIR ?? path.join(process.cwd(), ".data", "pglite");
+  if (!memory) {
+    // PGlite/nodefs tidak membuat folder induk — siapkan dulu supaya run pertama
+    // di mesin bersih tidak gagal dengan ENOENT.
+    mkdirSync(path.dirname(dir), { recursive: true });
+  }
   const db = new PGlite(memory ? undefined : dir);
   await db.waitReady;
   await runMigrations(db);

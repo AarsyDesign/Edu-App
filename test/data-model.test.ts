@@ -22,6 +22,7 @@ const migrationsDir = resolveMigrationsDir();
 
 const EXPECTED_TABLES = [
   "parent_account",
+  "parent_session", // Phase 3: sesi login orang tua (migrasi 0002)
   "child_profile",
   "learning_area",
   "skill",
@@ -51,9 +52,15 @@ async function expectFail(pattern: RegExp, query: string): Promise<void> {
 
 async function seedParent(): Promise<string> {
   const id = randomUUID();
+  // password_hash NOT NULL (migrasi 0002): seluruh akun wajib punya kredensial.
   await db.query(
-    "INSERT INTO parent_account (id, email, display_name) VALUES ($1::uuid, $2, $3)",
-    [id, `o${id.slice(0, 8)}@contoh.id`, "Orang Tua"],
+    "INSERT INTO parent_account (id, email, display_name, password_hash) VALUES ($1::uuid, $2, $3, $4)",
+    [
+      id,
+      `o${id.slice(0, 8)}@contoh.id`,
+      "Orang Tua",
+      "scrypt$16384$8$1$c2FsdA==$aGFzaA==",
+    ],
   );
   return id;
 }
@@ -67,7 +74,7 @@ after(async () => {
   await db.close();
 });
 
-test("2.14 migrasi dari database bersih: 12 tabel + tercatat di schema_migrations", async () => {
+test("2.14 migrasi dari database bersih: seluruh tabel + tercatat di schema_migrations", async () => {
   const rows = await sql<{ table_name: string }>(
     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'",
   );
@@ -78,11 +85,15 @@ test("2.14 migrasi dari database bersih: 12 tabel + tercatat di schema_migration
   assert.equal(tables.size, EXPECTED_TABLES.length + 1, "tabel tak terduga muncul");
 
   const mig = await sql<{ id: string; checksum: string; applied_at: string }>(
-    "SELECT id, checksum, applied_at FROM schema_migrations",
+    "SELECT id, checksum, applied_at FROM schema_migrations ORDER BY id",
   );
-  assert.equal(mig.length, 1);
-  assert.equal(mig[0].id, "0001_init.sql");
-  assert.match(mig[0].checksum, /^[0-9a-f]{64}$/);
+  const migIds = mig.map((m) => m.id);
+  assert.deepEqual(
+    migIds,
+    (await readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort((a, b) => a.localeCompare(b, "en")),
+    "seluruh file migrasi tercatat, urut nama",
+  );
+  for (const m of mig) assert.match(m.checksum, /^[0-9a-f]{64}$/);
 
   // Tabel hanya-tulis (append-only) sengaja tanpa updated_at: riwayat tidak
   // boleh diedit belakangan (provenance, SECURITY-PRIVACY).
@@ -129,11 +140,16 @@ test("2.14 migrasi dari database bersih: 12 tabel + tercatat di schema_migration
 test("2.15 migrasi idempoten: dijalankan ulang tidak ada yang diterapkan lagi", async () => {
   const res = await runMigrations(db, migrationsDir);
   assert.deepEqual(res.applied, []);
-  assert.deepEqual(res.skipped, ["0001_init.sql"]);
+  const files = (await readdir(migrationsDir)).filter((f) => f.endsWith(".sql"));
+  assert.deepEqual(
+    res.skipped,
+    files.sort((a, b) => a.localeCompare(b, "en")),
+    "semua migrasi tercatat sebagai sudah diterapkan",
+  );
   const rows = await sql<{ count: string }>(
     "SELECT count(*) AS count FROM schema_migrations",
   );
-  assert.equal(Number(rows[0].count), 1);
+  assert.equal(Number(rows[0].count), files.length);
 });
 
 test("2.4 kepemilikan: profil anak harus punya orang tua (FK + cascade)", async () => {
@@ -229,8 +245,8 @@ test("2.12 uniqueness: email, nickname aktif, kode area/skill, opsi, pengaturan"
   const p1 = await seedParent();
   await expectFail(
     /duplicate key|violates/i,
-    `INSERT INTO parent_account (email, display_name)
-     VALUES ('  ${`o${p1.slice(0, 8)}`.toUpperCase()}@CONTOH.ID ', 'Duplikat')`,
+    `INSERT INTO parent_account (email, display_name, password_hash)
+     VALUES ('  ${`o${p1.slice(0, 8)}`.toUpperCase()}@CONTOH.ID ', 'Duplikat', 'scrypt$16384$8$1$c2FsdA==$aGFzaA==')`,
   );
 
   await db.query(
@@ -446,7 +462,7 @@ test("2.15 migrasi gagal = transaksi batal, tidak ada potongan skema tertinggal"
       await writeFile(path.join(dir, f), await readFile(path.join(migrationsDir, f), "utf8"));
     }
     await writeFile(
-      path.join(dir, "0002_sengaja_gagal.sql"),
+      path.join(dir, "9999_sengaja_gagal.sql"),
       "CREATE TABLE tabel_ok (id int);\nCREATE TABLE_ini_syntax_error;\n",
     );
 
@@ -454,7 +470,7 @@ test("2.15 migrasi gagal = transaksi batal, tidak ada potongan skema tertinggal"
     await fresh.waitReady;
     await assert.rejects(
       runMigrations(fresh, dir),
-      /syntax error|0002_sengaja_gagal/i,
+      /syntax error|9999_sengaja_gagal/i,
     );
     const tables = await fresh.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
@@ -462,23 +478,25 @@ test("2.15 migrasi gagal = transaksi batal, tidak ada potongan skema tertinggal"
     const names = tables.rows.map((r) => r.table_name);
     assert.ok(names.includes("parent_account"), "migrasi 0001 seharusnya tetap utuh");
     assert.ok(!names.includes("tabel_ok"), "0002 gagal tidak boleh meninggalkan tabel");
-    const mig = await fresh.query<{ id: string }>("SELECT id FROM schema_migrations");
+    const mig = await fresh.query<{ id: string }>(
+      "SELECT id FROM schema_migrations ORDER BY id",
+    );
     assert.deepEqual(
-      mig.rows.map((r) => r.id).sort(),
-      ["0001_init.sql"],
-      "migrasi gagal tidak boleh tercatat",
+      mig.rows.map((r) => r.id),
+      [...files].sort((a, b) => a.localeCompare(b, "en")),
+      "migrasi yang gagal tidak boleh tercatat — yang tercatat hanya yang sukses",
     );
     await fresh.close();
 
     // Checksum: file yang diedit setelah diterapkan harus ditolak
     await writeFile(
-      path.join(dir, "0002_sengaja_gagal.sql"),
+      path.join(dir, "9999_sengaja_gagal.sql"),
       "SELECT 1;\n",
     );
     const clean = new PGlite();
     await clean.waitReady;
     await runMigrations(clean, dir);
-    await writeFile(path.join(dir, "0002_sengaja_gagal.sql"), "SELECT 2;\n");
+    await writeFile(path.join(dir, "9999_sengaja_gagal.sql"), "SELECT 2;\n");
     await assert.rejects(runMigrations(clean, dir), /checksum/i);
     await clean.close();
   } finally {
