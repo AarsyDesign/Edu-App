@@ -1,0 +1,245 @@
+---
+/**
+ * Kartu profil anak untuk area orang tua (VRD 4.8, 4.11).
+ * Menampilkan ringkasan profil + aksi edit/arsip dengan gerbang orang tua.
+ */
+interface Props {
+  child: {
+    childId: string;
+    nickname: string;
+    age: number;
+    avatarKey: string | null;
+    language: string;
+    learningGoals: string[];
+    archivedAt: Date | null;
+    createdAt: Date;
+  };
+  isActive: boolean;
+  onSelect: string; // URL untuk memilih anak ini (child switcher)
+  onEdit: string;   // URL untuk edit
+  onArchive: string; // URL untuk arsip (DELETE)
+}
+
+const { child, isActive, onSelect, onEdit, onArchive } = Astro.props;
+
+const avatarSVGs: Record<string, string> = {
+  star: `<svg viewBox="0 0 24 24" fill="none" stroke="#174A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`,
+  moon: `<svg viewBox="0 0 24 24" fill="none" stroke="#174A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`,
+  book: `<svg viewBox="0 0 24 24" fill="none" stroke="#174A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
+  lantern: `<svg viewBox="0 0 24 24" fill="none" stroke="#174A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M4 22h16M6 8h12M6 14h12"></path></svg>`,
+};
+
+const avatar = child.avatarKey && avatarSVGs[child.avatarKey] ? avatarSVGs[child.avatarKey] : avatarSVGs.star;
+const ageLabel = `Usia ${child.age} tahun`;
+const goalsPreview = child.learningGoals.length > 0
+  ? child.learningGoals.slice(0, 2).join(", ") + (child.learningGoals.length > 2 ? " …" : "")
+  : "Belum ada tujuan";
+
+---
+
+<article class={`profile-card ${isActive ? "active" : ""} ${child.archivedAt ? "archived" : ""}`} data-child-id={child.childId}>
+  <div class="card-header">
+    <div class="avatar-wrap" aria-hidden="true">
+      {avatar}
+    </div>
+    <div class="info">
+      <h2>{child.nickname}</h2>
+      <p class="meta">{ageLabel} · {child.language.toUpperCase()}</p>
+    </div>
+    {isActive && <span class="badge-active" aria-label="Profil aktif">Aktif</span>}
+    {child.archivedAt && <span class="badge-archived" aria-label="Profil diarsipkan">Diarsipkan</span>}
+  </div>
+
+  <div class="card-body">
+    <p class="goals" aria-label="Tujuan belajar">{goalsPreview}</p>
+    <p class="created">Dibuat {new Date(child.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+  </div>
+
+  <div class="card-actions">
+    {isActive && !child.archivedAt && (
+      <>
+        <a class="btn-secondary" href={onSelect} data-action="select">Pilih</a>
+        <a class="btn-tertiary" href={onEdit} data-action="edit">Ubah</a>
+        <form action={onArchive} method="POST" class="archive-form" data-parent-gate>
+          <input type="hidden" name="_method" value="DELETE" />
+          <button class="btn-ghost-danger" type="submit" data-action="archive">Arsipkan</button>
+        </form>
+      </>
+    )}
+    {child.archivedAt && (
+      <span class="archived-note">Profil ini telah diarsipkan. Riwayat belajar tetap tersimpan.</span>
+    )}
+  </div>
+</article>
+
+<style>
+  .profile-card {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-5);
+    transition: border-color var(--dur-card) var(--ease-out), box-shadow var(--dur-card) var(--ease-out);
+  }
+  .profile-card:hover {
+    border-color: var(--c-sage);
+    box-shadow: var(--shadow-soft);
+  }
+  .profile-card.active {
+    border-color: var(--c-deep-green);
+    box-shadow: 0 0 0 2px var(--c-soft-green);
+  }
+  .profile-card.archived {
+    opacity: 0.6;
+    background: var(--c-ivory);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+  }
+
+  .avatar-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--r-card);
+    background: var(--c-soft-green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .avatar-wrap svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .info {
+    flex: 1;
+    min-width: 0;
+  }
+  .info h2 {
+    font-size: var(--fs-xl);
+    margin-bottom: var(--sp-1);
+  }
+  .meta {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    margin: 0;
+  }
+
+  .badge-active {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    padding: var(--sp-1) var(--sp-3);
+    border-radius: var(--r-pill);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .badge-archived {
+    background: var(--c-soft-peach);
+    color: var(--c-ink);
+    padding: var(--sp-1) var(--sp-3);
+    border-radius: var(--r-pill);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .card-body {
+    margin-bottom: var(--sp-4);
+    padding-bottom: var(--sp-4);
+    border-bottom: var(--border-subtle);
+  }
+  .goals {
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+    margin: 0 0 var(--sp-2);
+  }
+  .created {
+    font-size: var(--fs-xs);
+    color: var(--c-muted-ink);
+    margin: 0;
+  }
+
+  .card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    align-items: center;
+  }
+  .archived-note {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    flex: 1;
+  }
+
+  /* Button variants following DESIGN.md */
+  .btn-secondary,
+  .btn-tertiary,
+  .btn-ghost-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-4);
+    border-radius: var(--r-control);
+    font-family: var(--font-body);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+  }
+  .btn-secondary {
+    background: var(--c-warm-yellow);
+    color: var(--c-ink);
+    border: none;
+  }
+  .btn-secondary:hover {
+    background: #e6d975;
+  }
+  .btn-secondary:active {
+    transform: scale(0.98);
+  }
+  .btn-tertiary {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    border: none;
+  }
+  .btn-tertiary:hover {
+    background: #cde0d3;
+  }
+  .btn-tertiary:active {
+    transform: scale(0.98);
+  }
+  .btn-ghost-danger {
+    background: transparent;
+    color: var(--c-error);
+    border: var(--border-subtle);
+  }
+  .btn-ghost-danger:hover {
+    background: var(--c-soft-peach);
+    border-color: var(--c-error);
+  }
+  .btn-ghost-danger:active {
+    transform: scale(0.98);
+  }
+
+  .archive-form {
+    margin: 0;
+  }
+
+  @media (max-width: 480px) {
+    .card-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .btn-secondary,
+    .btn-tertiary,
+    .btn-ghost-danger {
+      width: 100%;
+    }
+  }
+</style>

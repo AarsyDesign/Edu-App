@@ -1,50 +1,301 @@
 ---
+/**
+ * Area Orang Tua — Dashboard (VRD Phase 10 + Phase 4.8, 4.11 UI).
+ * - Daftar profil anak (aktif + terarsip)
+ * - Child switcher (pilih anak untuk belajar)
+ * - Buat profil baru
+ * - Edit / arsip profil dengan gerbang orang tua
+ */
 import BaseLayout from "../layouts/BaseLayout.astro";
+import ChildProfileCard from "../components/ChildProfileCard.astro";
+import { getDb } from "../lib/db/index.ts";
+import { listChildrenForParent } from "../lib/children/profiles.ts";
+import { parentIdOf, publicChild } from "../lib/children/api.ts";
+import { errorResponse } from "../lib/auth/http.ts";
+
+const parentIdResult = parentIdOf(Astro);
+if (parentIdResult instanceof Response) {
+  return Astro.redirect("/login");
+}
+const parentId = parentIdResult;
+
+const db = await getDb();
+const children = await listChildrenForParent(db, parentId);
+const allChildrenRows = await db.query<{
+  id: string;
+  parent_account_id: string;
+  nickname: string;
+  age: number;
+  avatar_key: string | null;
+  language: string;
+  learning_goals: string[] | null;
+  archived_at: Date | null;
+  created_at: Date;
+}>(
+  `SELECT id, parent_account_id, nickname, age, avatar_key, language, learning_goals, archived_at, created_at
+     FROM child_profile
+    WHERE parent_account_id = $1::uuid
+    ORDER BY archived_at NULLS FIRST, created_at ASC, id ASC`,
+  [parentId]
+);
+const allChildren = allChildrenRows.rows.map((r) => ({
+  childId: r.id,
+  parentAccountId: r.parent_account_id,
+  nickname: r.nickname,
+  age: Number(r.age),
+  avatarKey: r.avatar_key,
+  language: r.language,
+  learningGoals: r.learning_goals ?? [],
+  archivedAt: r.archived_at,
+  createdAt: r.created_at,
+}));
+
+const activeChildren = allChildren.filter((c) => !c.archivedAt);
+const archivedChildren = allChildren.filter((c) => c.archivedAt);
+
 ---
 
 <BaseLayout title="Area Orang Tua" mode="parent">
-  <section class="empty">
+  <header class="page-header">
     <h1>Area Orang Tua</h1>
-    <p class="sub">
-      Dasbor orang tua (profil anak, progress, pengaturan) menyusul setelah modul
-      profil & progress dibangun — lihat VRD Phase 10.
-    </p>
-    <a class="btn-ghost" href="/">Kembali</a>
+    <p class="subtitle">Kelola profil anak, lihat progress, dan atur preferensi.</p>
+  </header>
+
+  <section aria-labelledby="active-children-heading" class="section">
+    <div class="section-header">
+      <h2 id="active-children-heading">Profil Anak Aktif</h2>
+      <a class="btn-primary" href="/parent/profil/baru">+ Tambah Anak</a>
+    </div>
+
+    {activeChildren.length === 0 ? (
+      <div class="empty-state">
+        <div class="mark" aria-hidden="true">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect x="8" y="16" width="48" height="36" rx="6" fill="#DDEDE2" stroke="#174A3A" stroke-width="2" />
+            <path d="M32 22v24M16 28h12M40 28h12" stroke="#174A3A" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </div>
+        <h3>Belum ada profil anak</h3>
+        <p>Buat profil pertama untuk memulai perjalanan belajar.</p>
+        <a class="btn-primary" href="/parent/profil/baru">Buat Profil Anak</a>
+      </div>
+    ) : (
+      <div class="profiles-grid">
+        {activeChildren.map((child) => (
+          <ChildProfileCard
+            child={child}
+            isActive={true}
+            onSelect={`/learn?child=${child.childId}`}
+            onEdit={`/parent/profil/${child.childId}/edit`}
+            onArchive={`/api/children/${child.childId}`}
+          />
+        ))}
+      </div>
+    )}
+  </section>
+
+  {archivedChildren.length > 0 && (
+    <section aria-labelledby="archived-children-heading" class="section">
+      <h2 id="archived-children-heading">Profil Diarsipkan</h2>
+      <div class="profiles-grid">
+        {archivedChildren.map((child) => (
+          <ChildProfileCard
+            child={child}
+            isActive={false}
+            onSelect="#"
+            onEdit="#"
+            onArchive="#"
+          />
+        ))}
+      </div>
+      <p class="archive-note">Profil diarsipkan tidak muncul di pilihan belajar. Riwayat belajar tetap tersimpan.</p>
+    </section>
+  )}
+
+  <section aria-labelledby="settings-heading" class="section">
+    <h2 id="settings-heading">Pengaturan</h2>
+    <div class="settings-grid">
+      <article class="setting-card">
+        <h3>Preferensi Audio</h3>
+        <p class="setting-desc">Musik OFF secara bawaan. Atur efek suara dan instruksi suara.</p>
+        <a class="btn-tertiary" href="/parent/pengaturan/audio">Atur Audio</a>
+      </article>
+      <article class="setting-card">
+        <h3>Durasi Sesi</h3>
+        <p class="setting-desc">Batas waktu bermain per sesi (akan hadir di Phase 10).</p>
+        <span class="coming-soon">Segera hadir</span>
+      </article>
+      <article class="setting-card">
+        <h3>Data & Privasi</h3>
+        <p class="setting-desc">Lihat data yang disimpan, unduh, atau hapus akun.</p>
+        <a class="btn-tertiary" href="/parent/pengaturan/privasi">Kelola Data</a>
+      </article>
+    </div>
   </section>
 </BaseLayout>
 
 <style>
-  .empty {
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+  .page-header {
+    margin-bottom: var(--sp-8);
     text-align: center;
-    gap: var(--sp-3);
-    padding: var(--sp-6) 0;
   }
-  h1 {
+  .page-header h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+  }
+  @media (min-width: 768px) {
+    .page-header h1 {
+      font-size: var(--fs-3xl);
+    }
+  }
+  .subtitle {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-lg);
+    max-width: 50ch;
+    margin-inline: auto;
+  }
+
+  .section {
+    margin-bottom: var(--sp-10);
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-5);
+  }
+  .section-header h2 {
     font-size: var(--fs-xl);
     margin: 0;
   }
-  .sub {
-    color: var(--c-muted-ink);
-    max-width: 44ch;
-    margin: 0;
+
+  .empty-state {
+    text-align: center;
+    padding: var(--sp-10) var(--sp-4);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
   }
-  .btn-ghost {
+  .empty-state .mark {
+    margin: 0 auto var(--sp-4);
+  }
+  .empty-state h3 {
+    font-size: var(--fs-xl);
+    margin-bottom: var(--sp-2);
+  }
+  .empty-state p {
+    color: var(--c-muted-ink);
+    margin-bottom: var(--sp-5);
+  }
+
+  .profiles-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-4);
+  }
+  @media (min-width: 768px) {
+    .profiles-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (min-width: 1024px) {
+    .profiles-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .archive-note {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    text-align: center;
     margin-top: var(--sp-4);
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-4);
+  }
+  @media (min-width: 768px) {
+    .settings-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .setting-card {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-5);
+    text-align: center;
+  }
+  .setting-card h3 {
+    font-size: var(--fs-lg);
+    margin-bottom: var(--sp-2);
+  }
+  .setting-desc {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    margin-bottom: var(--sp-4);
+  }
+  .coming-soon {
+    display: inline-block;
+    padding: var(--sp-2) var(--sp-4);
+    background: var(--c-soft-blue);
+    color: var(--c-deep-green);
+    border-radius: var(--r-pill);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+  }
+
+  /* Button variants */
+  .btn-primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-height: var(--touch-min);
-    padding: 0 var(--sp-6);
+    padding: 0 var(--sp-5);
+    border-radius: var(--r-card);
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+  }
+  .btn-primary:hover {
+    background: var(--c-ink);
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-tertiary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-4);
     border-radius: var(--r-control);
-    background: var(--c-warm-white);
-    border: var(--border-subtle);
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    font-family: var(--font-body);
+    font-size: var(--fs-sm);
     font-weight: 600;
     text-decoration: none;
-    color: var(--c-deep-green);
+    border: none;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+  }
+  .btn-tertiary:hover {
+    background: #cde0d3;
+  }
+  .btn-tertiary:active {
+    transform: scale(0.98);
   }
 </style>
