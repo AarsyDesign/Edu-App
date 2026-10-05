@@ -60,6 +60,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 0 | Repository and Environment Audit | ✅ DONE | 2026-10-04 (commit `cbe7564`) |
 | 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
+| 3 | Authentication and Parent Ownership | 🔶 PARTIAL | 2026-10-05 (commit `5c17aa6`) — 3.1–3.4, 3.8, 3.10, 3.11 inti + endpoint; sisa 3.5–3.7, 3.9 + UI login/daftar |
 | 3–19 | sisa VRD | ⬜ BELUM | — |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
@@ -98,9 +99,40 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 9. **Kredensial orang tua belum ada di skema** — cara autentikasi belum disebut
    PRD. Kolomnya ditambahkan lewat migrasi `0002` di Phase 3.
 
+## Keputusan Phase 3 — bagian awal (VRD 3.1–3.4, 3.8, 3.10, 3.11)
+
+1. **Kredensial**: email + kata sandi. PRD/VRD tidak menyebut metode autentikasi;
+   email+kata sandi adalah jalur paling sederhana untuk satu deployable tanpa
+   layanan email eksternal. Hash: **scrypt** bawaan Node (`N=16384, r=8, p=1`,
+   salt 16 byte) disimpan di `parent_account.password_hash` lewat migrasi
+   `0002_parent_auth.sql` dengan format modular `scrypt$N$r$p$salt$hash`
+   sehingga parameter bisa dinaikkan tanpa migrasi kolom.
+2. **Sesi**: tabel `parent_session` menyimpan **hanya SHA-256** dari token acak
+   32 byte — token mentah hidup di cookie `edu_session` (HttpOnly, SameSite=Lax,
+   Path=/, `Secure` saat `NODE_ENV=production`). Kedaluwarsa **absolut** default
+   14 hari, dapat dioverride lewat env `SESSION_TTL_DAYS`. Tanpa IP/user-agent
+   (minimisasi data, PRD §14).
+3. **Tanpa oracle email (3.11)**: login gagal selalu membalas 401 +
+   `INVALID_CREDENTIALS` + pesan identik, baik untuk email tak terdaftar maupun
+   salah kata sandi; ketika email tidak ada, verifikasi tetap dijalankan terhadap
+   hash dummy supaya waktunya serupa. Registrasi tetap memberi tahu email sudah
+   dipakai (409) karena pengguna membutuhkan umpan balik yang bisa ditindaklanjuti
+   — enumerasi lewat jalur ini ditangani rate limiting (VRD 3.9, belum dikerjakan).
+4. **CSRF berlapis**: cookie SameSite=Lax + pemeriksaan header `Origin` pada
+   seluruh endpoint auth (beda asal = 403, tanpa sesi dipasang).
+5. **Body dibatasi 8 KB** dan respons auth selalu `cache-control: no-store`;
+   pesan galat hanya memuat `{error, message}` tanpa detail internal (3.10).
+6. **Bug kecil yang diperbaiki**: `getDb()` tidak membuat folder induk database —
+   run pertama di mesin bersih gagal `ENOENT`. Kini `mkdirSync(..., recursive)`,
+   diuji `test/db-storage.test.ts`.
+7. **Smoke E2E** `scripts/smoke-auth.mjs` (`npm run smoke:auth`) menjalankan
+   server hasil build dan menguji endpoint sungguhan lewat HTTP. Catatan: adapter
+   Node hanya mem-bind `localhost` (IPv6 `::1`) sehingga pemanggilan dari Node
+   fetch harus memakai `http://[::1]:PORT`, bukan `127.0.0.1`.
+
 ## OPEN QUESTION
 1. ~~Database: mesin lokal tidak punya PostgreSQL~~ → **SELESAI 2026-10-05**:
-   PGlite dipakai lewat `src/lib/db/` (keputusan 1 di atas). Bila Arsyad
+   PGlite dipakai lewat `src/lib/db/` (Keputusan Phase 2 no. 1). Bila Arsyad
    prefer managed PostgreSQL lebih awal, cukup ganti isi modul itu.
 2. Deployment target belum diputuskan (PRD §19 tidak menyebut platform).
    Terkait: folder `db/migrations/` dibaca dari disk saat aplikasi start —
@@ -116,3 +148,16 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 5. **Lingkup preferensi per anak**: `app_setting` baru per orang tua. Bila
    preferensi (mis. musik) perlu beda tiap anak, tambahkan kolom `child_id`
    lewat migrasi baru pada Phase 4.
+6. **Kebijakan akun tidak diatur PRD**: durasi sesi (kini 14 hari via
+   `SESSION_TTL_DAYS`), panjang minimum kata sandi (8), dan tidak adanya
+   pemulihan akun/lupa kata sandi. Nilai awal dipilih aman dan mudah diubah;
+   konfirmasi bila Arsyad punya preferensi lain. Lupa kata sandi butuh jalur
+   email → tergantung keputusan deployment (OQ 2).
+7. **Verifikasi email**: registrasi kini langsung aktif (PRD tidak menyebut
+   konfirmasi email). Bila ingin divalidasi, butuh provider email dan itu
+   menambah keputusan infrastruktur.
+8. **Bentuk rate limiting (VRD 3.9)**: kandidat = penghitung per IP+endpoint di
+   memori proses (cukup untuk satu deployable) vs tabel di database (tahan bila
+   proses banyak). Belum dikerjakan — putuskan bersamaan dengan pelaksanaan 3.9.
+9. **Cookie `Secure`/HTTPS**: aktif otomatis saat `NODE_ENV=production`; nilai
+   praktisnya baru benar setelah deployment target + HTTPS tersedia (OQ 2).
