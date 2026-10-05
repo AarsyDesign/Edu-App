@@ -60,7 +60,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 0 | Repository and Environment Audit | ✅ DONE | 2026-10-04 (commit `cbe7564`) |
 | 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
-| 3 | Authentication and Parent Ownership | 🔶 PARTIAL | 2026-10-05 (commit `cbe571f`) — 3.1–3.4, 3.8, 3.10, 3.11 inti + endpoint + UI login/daftar; sisa 3.5–3.7, 3.9 |
+| 3 | Authentication and Parent Ownership | 🔶 PARTIAL | 2026-10-05 (commit `109ff0c`) — 3.1–3.4, 3.5–3.8, 3.10, 3.11 (endpoint + UI login/daftar + middleware rute + gerbang kepemilikan); **sisa 3.9 (rate limiting)** |
 | 3–19 | sisa VRD | ⬜ BELUM | — |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
@@ -152,6 +152,39 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    kosong, registrasi → `/parent` (sesi terpasang), login salah → pesan
    401 identik, login benar → `/parent`.
 
+## Keputusan Phase 3 — proteksi rute & kepemilikan (VRD 3.5–3.7, 2026-10-05, `109ff0c`)
+
+1. **Satu middleware untuk seluruh rute orang tua (3.5)**:
+   `src/middleware.ts` memanggil `guardRequest()` (`src/lib/auth/guard.ts`)
+   untuk prefiks `PROTECTED_PREFIXES` = `/parent`, `/api/parent`,
+   `/api/children`. Tanpa sesi sah: halaman → `303 See Other` ke `/login`,
+   endpoint → `401 UNAUTHENTICATED` (JSON `cache-control: no-store`).
+   Middleware Astro berjalan untuk halaman **dan** endpoint, jadi endpoint
+   Phase 4 yang berada di bawah prefiks itu ikut terlindungi tanpa kode
+   tambahan — terbukti di smoke: `/api/parent/children` (rute belum ada)
+   menjawab 401, bukan 404.
+2. **Sesi yang sudah divalidasi dititipkan ke `locals.parentSession`**
+   (`src/env.d.ts`) supaya handler tidak membaca cookie sendiri; database
+   tetap satu-satunya sumber kebenaran (dicocokkan tiap request).
+3. **Cookie sesi tidak sah ikut dibersihkan** saat permintaan ditolak —
+   peramban berhenti mengirim puing token (lanjutan VRD 3.4).
+4. **Kepemilikan anak (3.7)**: `getChildForParent(db, childId, parentId)`
+   selalu menambahkan klausa `parent_account_id = $parentId`. Id yang bukan
+   uuid valid → `null` tanpa kueri, sehingga id rusak tidak pernah memicu
+   galat database yang membocorkan detail (VRD 3.10).
+5. **Anti-enumerasi**: profil milik orang tua lain, profil yang tidak ada,
+   dan id rusak semuanya menghasilkan hasil yang sama (`null`); pemanggil
+   merespons status yang identik. Endpoint anak memang belum ada (Phase 4)
+   — VRD 3.6 dipenuhi sebagai **kontrak server-side + test**, bukan sebagai
+   endpoint kosong yang direka-reka.
+6. **3.8 tetap berlaku**: `parent_id` tidak pernah dibaca dari body/kueri
+   klien, selalu berasal dari sesi yang divalidasi middleware.
+7. **Verifikasi run ini**: 49 test hijau (12 di antaranya khusus gerbang),
+   `tsc --noEmit` bersih, `npm run build` hijau, dan smoke E2E
+   (`npm run smoke:auth`) kini memeriksa `/parent` tanpa sesi → 303
+   `/login`, `/parent` bersesi → 200 "Area Orang Tua", `/api/parent/*`
+   tanpa sesi → 401, `/parent` sesudah logout → 303.
+
 ## OPEN QUESTION
 1. ~~Database: mesin lokal tidak punya PostgreSQL~~ → **SELESAI 2026-10-05**:
    PGlite dipakai lewat `src/lib/db/` (Keputusan Phase 2 no. 1). Bila Arsyad
@@ -184,8 +217,14 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 9. **Cookie `Secure`/HTTPS**: aktif otomatis saat `NODE_ENV=production`; nilai
    praktisnya baru benar setelah deployment target + HTTPS tersedia (OQ 2).
 10. **Kontras `--c-muted-ink` di atas ivory**: 4,45:1 (sedikit di bawah 4,5:1)
-   — dipakai teks sekunder di empty state yang sudah ada (index/learn/parent/
-   500). Di atas warm-white 4,55:1 (lolos). Perbaikannya = menggelapkan token
-   global di DESIGN.md + tokens.css (mis. `#6C776F` → `#687269`, 4,77:1),
-   keputusan palet yang menyinggung banyak layar → jalankan bersama Phase 17
-   (Anti-Slop Visual QA), bukan diam-diam di run UI.
+    — dipakai teks sekunder di empty state yang sudah ada (index/learn/parent/
+    500). Di atas warm-white 4,55:1 (lolos). Perbaikannya = menggelapkan token
+    global di DESIGN.md + tokens.css (mis. `#6C776F` → `#687269`, 4,77:1),
+    keputusan palet yang menyinggung banyak layar → jalankan bersama Phase 17
+    (Anti-Slop Visual QA), bukan diam-diam di run UI.
+11. **Konvensi namespace API terlindungi**: gerbang middleware kini menjaga
+    `/parent`, `/api/parent`, dan `/api/children`. PRD/VRD tidak menentukan
+    bentuk endpoint profil anak, jadi prefiks itu adalah **asumsi penamaan**,
+    bukan kebutuhan. Bila Phase 4 memakai namespace lain, tambahkan ke
+    `PROTECTED_PREFIXES` **dan** tetap panggil `getChildForParent()` — jangan
+    mengandalkan prefiks saja untuk kepemilikan.
