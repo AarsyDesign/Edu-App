@@ -87,6 +87,20 @@ async function get(path) {
   return { status: res.status, body: await res.json() };
 }
 
+/** GET apa pun tanpa memaksa JSON (dipakai untuk halaman & cek proteksi rute). */
+async function getRaw(path) {
+  const res = await fetch(base + path, {
+    headers: jar.size ? { cookie: cookieHeader() } : {},
+    redirect: "manual",
+  });
+  absorbCookies(res);
+  return {
+    status: res.status,
+    location: res.headers.get("location"),
+    body: await res.text(),
+  };
+}
+
 let failed = 0;
 function check(label, cond, detail = "") {
   if (cond) console.log(`✔ ${label}`);
@@ -98,6 +112,19 @@ function check(label, cond, detail = "") {
 
 try {
   await waitForServer();
+
+  // --- proteksi rute (VRD 3.5) sebelum ada sesi ---
+  const anonPage = await getRaw("/parent");
+  console.log("anon /parent:", anonPage.status, anonPage.location);
+  check(
+    "/parent tanpa sesi → 303 ke /login",
+    anonPage.status === 303 && String(anonPage.location).endsWith("/login"),
+  );
+  const anonApi = await getRaw("/api/parent/children");
+  console.log("anon api:", anonApi.status, anonApi.body.slice(0, 120));
+  check("/api/parent/* tanpa sesi → 401 JSON", anonApi.status === 401);
+  const homeAnon = await getRaw("/");
+  check("/ tetap publik", homeAnon.status === 200);
 
   const reg = await post("/api/auth/register", {
     email: "Smoke@Contoh.id",
@@ -117,6 +144,14 @@ try {
   const sess = await get("/api/auth/session");
   console.log("session:", JSON.stringify(sess.body));
   check("session autentik", sess.body.authenticated === true && sess.body.displayName === "Smoke");
+
+  // --- proteksi rute dengan sesi sah ---
+  const authedPage = await getRaw("/parent");
+  console.log("authed /parent:", authedPage.status, authedPage.body.slice(0, 60));
+  check(
+    "/parent dengan sesi → 200 halaman orang tua",
+    authedPage.status === 200 && authedPage.body.includes("Area Orang Tua"),
+  );
 
   const dup = await post("/api/auth/register", {
     email: "smoke@contoh.id",
@@ -158,6 +193,13 @@ try {
   const after = await get("/api/auth/session");
   console.log("session sesudah logout:", JSON.stringify(after.body));
   check("sesi turun sesudah logout", after.body.authenticated === false);
+
+  const afterLogout = await getRaw("/parent");
+  console.log("/parent sesudah logout:", afterLogout.status, afterLogout.location);
+  check(
+    "/parent sesudah logout → dialihkan ke /login",
+    afterLogout.status === 303 && String(afterLogout.location).endsWith("/login"),
+  );
 
   const notFound = await post("/api/auth/login", { email: "" });
   check("body tidak valid 400", notFound.status === 400);
