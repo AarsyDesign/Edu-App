@@ -52,3 +52,17 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 - ✅ Konvensi yang ada didokumentasikan (hanya dokumen handoff)
 - ✅ Tidak ada perubahan destruktif (tidak ada yang bisa dihancurkan)
 - ⏸ **STOP sesuai VRD 0.13** — menunggu keputusan stack dari Arsyad sebelum Phase 1 (Product Foundation).
+
+## Status Fase (VRD) — diperbarui tiap run cron
+
+| Phase | Judul | Status | Terakhir |
+|-------|-------|--------|----------|
+| 0 | Repository and Environment Audit | ✅ DONE | 2026-10-04 (commit `cbe7564`) |
+| 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test |
+| 2 | Data Model | ⬜ BELUM | keputusan: PGlite (embedded Postgres) via `src/lib/db/` |
+| 3–19 | sisa VRD | ⬜ BELUM | — |
+| 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
+
+## OPEN QUESTION
+1. Database: mesin lokal tidak punya PostgreSQL (tidak ada `psql`, tidak ada listener 5432). Rencana: **PGlite** (embedded Postgres) lewat lapisan `src/lib/db/` tunggal agar mudah pindah ke managed PostgreSQL (PRD §19). Menunggu konfirmasi Arsyad bila ada preferensi lain.
+2. Deployment target belum diputuskan (PRD §19 tidak menyebut platform).
