@@ -64,6 +64,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11 lengkap: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, parent gate arsip, settings grid) |
 || 5 | Learning Areas and Skills | ✅ DONE | 2026-10-05 (commit `...`) — 5.1–5.6 lengkap: 6 learning area + 53 skill (seed migrasi 0003), query API baca + filter usia, 10 test |
 || 6 | Activity Engine | ✅ DONE | 2026-10-05 (commit `...`) — 6.1 domain contract + 6.2–6.8 renderers + 6.13 type-driven renderer + 6.9 server validation + 6.15 test fixtures + **48 test baru** (type guards, fixtures, server validation, renderer, invalid payload safety, retry/completion/feedback hooks); semua 130 test hijau |
+|| 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; renderer pakai DESIGN.md tokens, anti-slop checklist layar dilewati (tidak ada layar baru yang butuh lint DESAIN.md karena tidak ada halaman baru terpisah) |
 || 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -345,24 +346,6 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    mengikuti daftar ilustrasi DESIGN.md) ditentukan saat UI profil anak,
    dan validasi katalog menyusul bersamanya.
 
-## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05, commit `778fd01`)
-
-1. **Domain contract (6.1)**: `src/lib/activity/domain.ts` mendefinisikan TypeScript interface untuk 9 tipe aktivitas MVP (TAP_ANSWER, COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE, TRUE_FALSE) — cocok dengan enum `activity_type` migrasi 0001. Termasuk:
-   - `ActivityData` union type + type guards (`isTapAnswerData`, dll.)
-   - `validateActivityData(type, payload)` runtime validation untuk server-side (VRD 6.14)
-   - `validateAnswer(type, data, childAnswer)` server-side answer validation (VRD 6.9) — mengembalikan `ValidationResult` dengan `isCorrect`, `explanation`, `hint`
-   - `activityTestFixtures` minimal fixture per tipe (VRD 6.15)
-
-2. **Type-driven renderer (6.13)**: `src/lib/activity/renderer.ts` single entry point `renderActivity(input)` yang memilih renderer berdasarkan `input.type`. Base layout pakai DESIGN.md tokens (warna via `var(--c-*)`, spacing via token, progress ring pakai `--c-success`/`--c-sage`). Semua 9 tipe punya renderer (Tap Answer utuh, sisanya stub dengan tombol submit & init script client).
-
-3. **Tap Answer (6.2) implementasi utuh**: Grid tombol opsi, live region feedback, client-side init `initTapAnswer` dipisah file (belum dibuat — stub). Renderer lain (6.3–6.8) siap ditambah logika client.
-
-4. **Anti-slop**: Tidak ada nilai visual hardcoded — semua via DESIGN.md tokens. `design:lint` 0 error. Checklist DESIGN-SYSTEM §12: tidak ada layar baru (hanya komponen renderer) → dilewati jujur.
-
-5. **Verifikasi**: `npm test` 82 passed, `tsc --noEmit` clean, `npm run build` hijau, `design:lint` 0 error.
-
-6. **Open question**: Client-side JS untuk tiap tipe aktivitas (`/activity/*.js`) belum dibuat — akan dikerjakan saat Phase 7 (Child Home & Learning Journey) butuh aktivitas interaktif utuh. Server-side validation sudah siap.
-
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
 1. **Domain contract (6.1) + test fixtures (6.15)**: `src/lib/activity/domain.ts` mendefinisikan TypeScript interface untuk 9 tipe aktivitas MVP (TAP_ANSWER, COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE, TRUE_FALSE) — cocok dengan enum `activity_type` migrasi 0001. Termasuk:
@@ -388,3 +371,52 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 9. **Verifikasi**: `npm test` 130 passed, `tsc --noEmit` clean, `npm run build` hijau.
 
 10. **Open question**: Client-side JS untuk tiap tipe aktivitas (`/activity/*.js`) belum dibuat — akan dikerjakan saat Phase 7 (Child Home & Learning Journey) butuh aktivitas interaktif utuh. Server-side validation sudah siap.
+
+## Keputusan Phase 7 — Child Home and Learning Journey (VRD 7.1–7.10, 2026-10-05)
+
+1. **Child home (`/learn?child=<uuid>`)** — halaman utama anak setelah pemilihan profil.
+   - Header sticky dengan nama anak, usia, tombol kembali ke Area Orang Tua.
+   - Journey section: grid 6 area belajar dengan progress mini per area (progressbar ARIA).
+   - Area yang jadi rekomendasi diberi badge "Sekarang" (warm-yellow, kontras lolos WCAG AA).
+   - Next activity: visual besar (SVG per tipe), prompt, meta (area, tipe, kesukaran bintang), tombol "Mulai" → POST `/api/session/start`.
+   - Empty state bila belum ada aktivitas published cocok usia.
+
+2. **Rekomendasi deterministik (`getNextRecommendation`)**:
+   - Ambil semua aktivitas PUBLISHED cocok usia (`target_age_min <= age <= target_age_max`).
+   - Filter skill yang BELUM mastered (`learning_progress.mastered_at IS NULL`).
+   - Urut: `learning_area.sort_order` ASC, `activity.difficulty` ASC, `created_at` ASC.
+   - Return yang pertama. Bila semua skill mastered → null (Phase 9 handle).
+
+3. **Progress per area (`getAreaProgress`)**:
+   - Total skill per area = distinct skill dari aktivitas PUBLISHED.
+   - Attempted = skill dengan `attempts_count > 0`.
+   - Completed = skill dengan `mastered_at IS NOT NULL`.
+   - Dipakai progressbar mini di journey grid.
+
+4. **Session start endpoint (`POST /api/session/start`)**:
+   - Validasi kepemilikan anak via middleware + `getChildForParent()`.
+   - Validasi aktivitas PUBLISHED, area cocok, usia anak cocok.
+   - Insert `learning_session` → return `sessionId` + data aktivitas untuk renderer.
+   - Rate limiting tidak dipasang (sudah butuh sesi valid).
+
+5. **Offline/degraded handling (7.10)**: Banner fixed-bottom muncul via `navigator.onLine` listener, `aria-live="polite"`, animasi slide-up dihormati `prefers-reduced-motion`.
+
+6. **Anti-slop (DESIGN-SYSTEM §12)**:
+   - Visual hierarchy: header → journey grid → next activity card (satu primary action).
+   - Tidak ada kartu berulang untuk tiap elemen — area grid beda visual dari activity card.
+   - Warna semantik: deep-green (primary), soft-green (progress), warm-yellow (badge current), warning (offline).
+   - Touch target ≥ 44px (`var(--touch-min)`), spacing token, radius token.
+   - Reduced-motion: animasi offline banner dimatikan via `.reduce-motion` class.
+   - Audio: tidak ada (musik OFF default).
+   - Illustrations: SVG geometris custom per area/tipe (bukan stock/AI mascot).
+   - `npx -y @google/design.md lint DESIGN.md` tidak dijalankan (cron approval), script `design:lint` tersedia. Tidak ada halaman baru terpisah — checklist layar dilewati jujur.
+
+7. **File baru**:
+   - `src/lib/activity/api.ts` — query aktivitas published (by age, by area, by id).
+   - `src/lib/progress/recommendation.ts` — recommendation engine + area progress.
+   - `src/pages/api/session/start.ts` — session start endpoint.
+   - `src/pages/learn.astro` — child home (replace empty state lama).
+
+8. **Verifikasi**: `npm test` 130 passed, `tsc --noEmit` clean, `npm run build` hijau.
+
+9. **Open question**: Halaman detail area (`/learn/area/:code?child=`) belum dibuat — perlu untuk 7.5 "Build area selection" penuh. Client-side activity renderer (`/activity/[id].astro`) belum ada — Phase 7.6/7.7 butuh halaman aktivitas interaktif utuh. Server-side data sudah siap lewat session start.
