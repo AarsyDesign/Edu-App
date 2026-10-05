@@ -61,11 +61,31 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
 | 3 | Authentication and Parent Ownership | ✅ DONE | 2026-10-05 (commit `4617165`) — 3.1–3.11 lengkap: endpoint + UI login/daftar + middleware rute + gerbang kepemilikan + **3.9 rate limiting** |
-| 4 | Child Profile | 🟡 PARTIAL | 2026-10-05 (commit `bc7b848`) — 4.1–4.7 & 4.9–4.10 di server (endpoint + 14 test + smoke E2E); 4.8 & 4.11 (switcher, parent gate) + UI menyusul |
-| 5–19 | sisa VRD | ⬜ BELUM | — |
+|| 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11 lengkap: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, parent gate arsip, settings grid) |
+|| 5 | Learning Areas and Skills | ✅ DONE | 2026-10-05 (commit `...`) — 5.1–5.6 lengkap: 6 learning area + 53 skill (seed migrasi 0003), query API baca + filter usia, 10 test |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
-## Keputusan desain Phase 2 (VRD 2.1–2.15)
+## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
+
+1. **Seed migrasi 0003**: enam learning area MVP (PRD §4) + 53 skill awal
+   mengikuti CONTENT-SPEC.md. Semua `INSERT ... ON CONFLICT DO UPDATE` agar
+   migrasi idempoten & aman dijalankan ulang (VRD 2.15).
+2. **Age & difficulty**: `age_min`/`age_max` CHECK 3–7, `difficulty` 1–3
+   (netral; label per level menyusul konten). Constraint `age_min <= age_max`
+   di tingkat database (migrasi 0001).
+3. **Prerequisite (VRD 5.5)**: sengaja **tidak** ditambahkan kolom di skema
+   MVP — opsional, bisa migrasi baru bila bukti butuh. Skill dikembalikan
+   urut `sort_order` + `difficulty` sebagai proxy progresi ringan.
+4. **Content-configurable (VRD 5.6)**: query baca di `src/lib/learning/areas-skills.ts`
+   — UI tidak pernah hardcode nama area/skill. Endpoint:
+   - `GET /api/learning-areas` → daftar area aktif
+   - `GET /api/learning-areas/:code/skills?age=` → skill area + filter usia
+5. **Anti-enumerasi area**: kode tidak dikenal → 404 `AREA_NOT_FOUND` pesan
+   identik dengan area tidak aktif (konsisten VRD 3.11).
+6. **Test**: 10 test baru `test/phase5-learning-areas.test.ts` — seed, constraint,
+   filter usia, idempotensi migrasi. Total test suite: 82 passed.
+7. **LSP/Typecheck/Build/Lint DESIGN.md**: semuanya hijau. Tidak ada UI baru
+   → checklist layar dilewati (tanpa layar baru).
 
 1. **Mesin database**: PGlite 0.5.8 (PostgreSQL 18 embedded, WASM) lewat lapisan
    tunggal `src/lib/db/` — mesin lokal tidak punya server PostgreSQL. File SQL
