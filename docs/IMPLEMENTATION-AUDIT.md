@@ -60,7 +60,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 0 | Repository and Environment Audit | ✅ DONE | 2026-10-04 (commit `cbe7564`) |
 | 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
-| 3 | Authentication and Parent Ownership | 🔶 PARTIAL | 2026-10-05 (commit `5c17aa6`) — 3.1–3.4, 3.8, 3.10, 3.11 inti + endpoint; sisa 3.5–3.7, 3.9 + UI login/daftar |
+| 3 | Authentication and Parent Ownership | 🔶 PARTIAL | 2026-10-05 (commit `cbe571f`) — 3.1–3.4, 3.8, 3.10, 3.11 inti + endpoint + UI login/daftar; sisa 3.5–3.7, 3.9 |
 | 3–19 | sisa VRD | ⬜ BELUM | — |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
@@ -130,6 +130,28 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    Node hanya mem-bind `localhost` (IPv6 `::1`) sehingga pemanggilan dari Node
    fetch harus memakai `http://[::1]:PORT`, bukan `127.0.0.1`.
 
+## Keputusan Phase 3 — UI login/daftar (2026-10-05, `cbe571f`)
+
+1. **Dua rute, satu komponen**: `/login` dan `/daftar` merender
+   `src/components/ParentAuthForm.astro` (`mode="login" | "register"`) agar
+   markup, gaya, dan skrip hanya ada satu salinan.
+2. **Klien = JSON ke endpoint yang sudah ada**, dengan `method="post"` +
+   `action` sebagai cadangan tanpa JavaScript: browser mengirim
+   form-urlencoded ke endpoint yang sama sehingga kata sandi tetap berada di
+   body (bukan di URL) dan server menjawab 400 dengan pesan aman.
+3. **Status tidak lewat warna saja**: satu live region `role="status"`
+   `aria-live="polite"`; sibok ditandai tombol nonaktif + label "Memproses…",
+   galat/berhasil memakai pola `error-note`/`badge-success` dari DESIGN.md
+   (permukaan soft-peach/soft-green + teks ink/deep-green → kontras 10,07:1
+   dan 8,32:1), bukan teks merah/hijau di atas putih (4,33:1 dan 3,86:1,
+   di bawah WCAG AA).
+4. **Redirect sukses ke `/parent`** — penghalang rute (VRD 3.5) menyusul,
+   supaya tujuan redirect sudah ada sebelum rute dikunci.
+5. **Uji E2E eksploratif** via preview build di 390px & 768px: tanpa
+   overflow horizontal, urutan Tab logis, validasi native menolak isian
+   kosong, registrasi → `/parent` (sesi terpasang), login salah → pesan
+   401 identik, login benar → `/parent`.
+
 ## OPEN QUESTION
 1. ~~Database: mesin lokal tidak punya PostgreSQL~~ → **SELESAI 2026-10-05**:
    PGlite dipakai lewat `src/lib/db/` (Keputusan Phase 2 no. 1). Bila Arsyad
@@ -161,3 +183,9 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    proses banyak). Belum dikerjakan — putuskan bersamaan dengan pelaksanaan 3.9.
 9. **Cookie `Secure`/HTTPS**: aktif otomatis saat `NODE_ENV=production`; nilai
    praktisnya baru benar setelah deployment target + HTTPS tersedia (OQ 2).
+10. **Kontras `--c-muted-ink` di atas ivory**: 4,45:1 (sedikit di bawah 4,5:1)
+   — dipakai teks sekunder di empty state yang sudah ada (index/learn/parent/
+   500). Di atas warm-white 4,55:1 (lolos). Perbaikannya = menggelapkan token
+   global di DESIGN.md + tokens.css (mis. `#6C776F` → `#687269`, 4,77:1),
+   keputusan palet yang menyinggung banyak layar → jalankan bersama Phase 17
+   (Anti-Slop Visual QA), bukan diam-diam di run UI.
