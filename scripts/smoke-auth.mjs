@@ -67,14 +67,19 @@ function absorbCookies(res) {
 const cookieHeader = () => [...jar.entries()].map(([k, e]) => `${k}=${e.value}`).join("; ");
 
 async function post(path, body, overrideOrigin = origin) {
+  return request("POST", path, body, overrideOrigin);
+}
+
+/** Permintaan JSON umum (POST/PATCH/DELETE) dengan cookie & header Origin. */
+async function request(method, path, body, overrideOrigin = origin) {
   const res = await fetch(base + path, {
-    method: "POST",
+    method,
     headers: {
       "content-type": "application/json",
       origin: overrideOrigin,
       ...(jar.size ? { cookie: cookieHeader() } : {}),
     },
-    body: JSON.stringify(body),
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     redirect: "manual",
   });
   absorbCookies(res);
@@ -130,6 +135,8 @@ try {
   const anonApi = await getRaw("/api/parent/children");
   console.log("anon api:", anonApi.status, anonApi.body.slice(0, 120));
   check("/api/parent/* tanpa sesi → 401 JSON", anonApi.status === 401);
+  const anonChildren = await getRaw("/api/children");
+  check("/api/children tanpa sesi → 401 JSON", anonChildren.status === 401);
   const homeAnon = await getRaw("/");
   check("/ tetap publik", homeAnon.status === 200);
 
@@ -151,6 +158,65 @@ try {
   const sess = await get("/api/auth/session");
   console.log("session:", JSON.stringify(sess.body));
   check("session autentik", sess.body.authenticated === true && sess.body.displayName === "Smoke");
+
+  // --- profil anak (VRD Phase 4) lewat HTTP sungguhan ---
+  const child = await post("/api/children", {
+    nickname: "Nusa",
+    age: 5,
+    learningGoals: ["Mengenal angka"],
+  });
+  console.log("create child:", child.status, JSON.stringify(child.body));
+  check("create profil anak 201", child.status === 201 && child.body?.child?.nickname === "Nusa");
+  const childId = child.body?.child?.childId;
+  check(
+    "respons anak tanpa parentAccountId",
+    typeof childId === "string" && !("parentAccountId" in (child.body?.child ?? {})),
+  );
+
+  const childList = await get("/api/children");
+  check(
+    "daftar anak aktif berisi 1 profil",
+    childList.status === 200 && childList.body?.children?.length === 1,
+  );
+
+  const childDup = await post("/api/children", { nickname: " nusa ", age: 6 });
+  check("nickname duplikat → 409 NICKNAME_TAKEN", childDup.status === 409);
+
+  const childBadAge = await post("/api/children", { nickname: "Salah Usia", age: 99 });
+  check("usia di luar 3–7 → 400", childBadAge.status === 400);
+
+  const childPatch = await request("PATCH", `/api/children/${childId}`, { age: 6 });
+  console.log("patch child:", childPatch.status, JSON.stringify(childPatch.body));
+  check(
+    "PATCH profil anak 200 + usia berubah",
+    childPatch.status === 200 && childPatch.body?.child?.age === 6,
+  );
+
+  const childMissing = await request(
+    "PATCH",
+    "/api/children/00000000-0000-4000-8000-000000000000",
+    { nickname: "Tidak Ada" },
+  );
+  check("PATCH id tak dikenal → 404", childMissing.status === 404);
+
+  const childCross = await post(
+    "/api/children",
+    { nickname: "Lintas Asal", age: 4 },
+    "https://jahat.example",
+  );
+  check("create anak lintas-asal → 403", childCross.status === 403);
+
+  const childDelete = await request("DELETE", `/api/children/${childId}`);
+  console.log("arsip child:", childDelete.status, JSON.stringify(childDelete.body));
+  check(
+    "DELETE profil anak 200 + archivedAt terisi",
+    childDelete.status === 200 && Boolean(childDelete.body?.child?.archivedAt),
+  );
+  const childListAfter = await get("/api/children");
+  check(
+    "profil terarsip keluar dari daftar aktif",
+    childListAfter.status === 200 && childListAfter.body?.children?.length === 0,
+  );
 
   // --- proteksi rute dengan sesi sah ---
   const authedPage = await getRaw("/parent");
