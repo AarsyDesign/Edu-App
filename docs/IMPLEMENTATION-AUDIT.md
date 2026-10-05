@@ -58,11 +58,61 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | Phase | Judul | Status | Terakhir |
 |-------|-------|--------|----------|
 | 0 | Repository and Environment Audit | ✅ DONE | 2026-10-04 (commit `cbe7564`) |
-| 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test |
-| 2 | Data Model | ⬜ BELUM | keputusan: PGlite (embedded Postgres) via `src/lib/db/` |
+| 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
+| 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
 | 3–19 | sisa VRD | ⬜ BELUM | — |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
+## Keputusan desain Phase 2 (VRD 2.1–2.15)
+
+1. **Mesin database**: PGlite 0.5.8 (PostgreSQL 18 embedded, WASM) lewat lapisan
+   tunggal `src/lib/db/` — mesin lokal tidak punya server PostgreSQL. File SQL
+   migrasi dibuat standar PostgreSQL agar bisa langsung dipakai managed
+   PostgreSQL (PRD §19) tanpa mengubah kode lain.
+2. **Migrasi forward-only**: `db/migrations/*.sql`, urut nama, satu file =
+   satu transaksi, dicatat di `schema_migrations` (id + checksum SHA-256).
+   File yang sudah diterapkan tidak boleh diedit — perubahan = file baru.
+   Skrip `down` tidak disediakan; pemulihan = backup atau DB bersih + terapkan
+   ulang (VRD 2.15, diuji test: migrasi gagal tidak meninggalkan apa pun).
+3. **Minimisasi PII**: `child_profile` hanya punya nickname, usia (3–7, pilihan
+   orang tua — bukan tanggal lahir), avatar non-hidup, bahasa, learning goals.
+   Tanpa nama lengkap/tgl lahir/alamat/telepon/lokasi (PRD §8, §14). Test
+   memastikan daftar kolomnya persis.
+4. **Usia & kesukaran**: `age`/`target_age_min`/`target_age_max` CHECK 3–7
+   (`min <= max`); `difficulty` integer 1–3 (label per level menyusul bersama
+   konten, VRD 5.4 — belum ada di PRD sehingga tidak dikarang).
+5. **Kepemilikan**: FK `child_profile.parent_account_id NOT NULL ON DELETE
+   CASCADE`; delete akun orang tua menghapus seluruh jejak anak (retensi).
+   Tidak ada view publik; semua akses anak harus melewati join ke akun orang tua
+   → dasar cek otorisasi server-side Phase 3.
+6. **Provenance konten**: `content_review` menyimpan tiap transisi status; trigger
+   menyalinnya ke `activity.review_status` sehingga alur DRAFT → … → PUBLISHED
+   tidak bisa dilewati diam-diam. `content_source` memaksa rujukan (title, type,
+   reference detail) + flag `is_disputed` untuk klaim keagamaan (PRD §7).
+7. **Riwayat tak boleh hilang/diedit**: `activity_attempt` → `ON DELETE RESTRICT`
+   terhadap aktivitas (jalur wajar = UNPUBLISHED); tabel riwayat/jejak
+   (`learning_session`, `activity_attempt`, `activity_option`, `content_review`,
+   `content_source`) append-only tanpa `updated_at`.
+8. **`app_setting` berlingkup per akun orang tua** (PRD §12: preferensi audio &
+   durasi sesi); default global hidup di kode, bukan database.
+9. **Kredensial orang tua belum ada di skema** — cara autentikasi belum disebut
+   PRD. Kolomnya ditambahkan lewat migrasi `0002` di Phase 3.
+
 ## OPEN QUESTION
-1. Database: mesin lokal tidak punya PostgreSQL (tidak ada `psql`, tidak ada listener 5432). Rencana: **PGlite** (embedded Postgres) lewat lapisan `src/lib/db/` tunggal agar mudah pindah ke managed PostgreSQL (PRD §19). Menunggu konfirmasi Arsyad bila ada preferensi lain.
+1. ~~Database: mesin lokal tidak punya PostgreSQL~~ → **SELESAI 2026-10-05**:
+   PGlite dipakai lewat `src/lib/db/` (keputusan 1 di atas). Bila Arsyad
+   prefer managed PostgreSQL lebih awal, cukup ganti isi modul itu.
 2. Deployment target belum diputuskan (PRD §19 tidak menyebut platform).
+   Terkait: folder `db/migrations/` dibaca dari disk saat aplikasi start —
+   pastikan ikut ter-deploy, atau set env `MIGRATIONS_DIR`.
+3. **Identitas reviewer konten**: `activity.reviewed_by` dan
+   `content_review.reviewer` berupa `uuid` tanpa FK karena akun reviewer harus
+   terpisah dari akun orang tua (PRD §13) dan tabelnya belum ada. Putuskan di
+   Phase 11 (Content Management) lalu tambahkan FK lewat migrasi baru.
+4. **Matriks transisi status konten**: PRD §7 menyebut alur produksi tapi tidak
+   memberi daftar transisi eksplisit. Skema kini hanya memvalidasi `from ≠ to`
+   + enum. Aturan transisi yang sah diputuskan di Phase 11, bukan dikarang di
+   sini.
+5. **Lingkup preferensi per anak**: `app_setting` baru per orang tua. Bila
+   preferensi (mis. musik) perlu beda tiap anak, tambahkan kolom `child_id`
+   lewat migrasi baru pada Phase 4.
