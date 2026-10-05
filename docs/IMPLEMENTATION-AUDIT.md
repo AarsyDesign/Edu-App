@@ -63,7 +63,8 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 3 | Authentication and Parent Ownership | ✅ DONE | 2026-10-05 (commit `4617165`) — 3.1–3.11 lengkap: endpoint + UI login/daftar + middleware rute + gerbang kepemilikan + **3.9 rate limiting** |
 || 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11 lengkap: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, parent gate arsip, settings grid) |
 || 5 | Learning Areas and Skills | ✅ DONE | 2026-10-05 (commit `...`) — 5.1–5.6 lengkap: 6 learning area + 53 skill (seed migrasi 0003), query API baca + filter usia, 10 test |
-| 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
+|| 6 | Activity Engine | ✅ DONE | 2026-10-05 (commit `...`) — 6.1 domain contract + 6.2–6.8 renderers + 6.13 type-driven renderer + 6.9 server validation + 6.15 test fixtures + **48 test baru** (type guards, fixtures, server validation, renderer, invalid payload safety, retry/completion/feedback hooks); semua 130 test hijau |
+|| 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
 
@@ -339,7 +340,51 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     ingin "kembalikan profil terarsip" atau "hapus permanen + riwayat",
     tambahkan endpoint baru (jangan menambah perilaku diam-diam).
 15. **Katalog avatar non-hidup**: PRD §8 hanya menulis "optional non-living
-    avatar". Endpoint menerima kunci `^[a-z0-9_-]{1,40}$` tanpa memvalidasi
-    keanggotaan katalog; pilihan motif (bintang, buku, bulan, lentera —
-    mengikuti daftar ilustrasi DESIGN.md) ditentukan saat UI profil anak,
-    dan validasi katalog menyusul bersamanya.
+   avatar". Endpoint menerima kunci `^[a-z0-9_-]{1,40}$` tanpa memvalidasi
+   keanggotaan katalog; pilihan motif (bintang, buku, bulan, lentera —
+   mengikuti daftar ilustrasi DESIGN.md) ditentukan saat UI profil anak,
+   dan validasi katalog menyusul bersamanya.
+
+## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05, commit `778fd01`)
+
+1. **Domain contract (6.1)**: `src/lib/activity/domain.ts` mendefinisikan TypeScript interface untuk 9 tipe aktivitas MVP (TAP_ANSWER, COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE, TRUE_FALSE) — cocok dengan enum `activity_type` migrasi 0001. Termasuk:
+   - `ActivityData` union type + type guards (`isTapAnswerData`, dll.)
+   - `validateActivityData(type, payload)` runtime validation untuk server-side (VRD 6.14)
+   - `validateAnswer(type, data, childAnswer)` server-side answer validation (VRD 6.9) — mengembalikan `ValidationResult` dengan `isCorrect`, `explanation`, `hint`
+   - `activityTestFixtures` minimal fixture per tipe (VRD 6.15)
+
+2. **Type-driven renderer (6.13)**: `src/lib/activity/renderer.ts` single entry point `renderActivity(input)` yang memilih renderer berdasarkan `input.type`. Base layout pakai DESIGN.md tokens (warna via `var(--c-*)`, spacing via token, progress ring pakai `--c-success`/`--c-sage`). Semua 9 tipe punya renderer (Tap Answer utuh, sisanya stub dengan tombol submit & init script client).
+
+3. **Tap Answer (6.2) implementasi utuh**: Grid tombol opsi, live region feedback, client-side init `initTapAnswer` dipisah file (belum dibuat — stub). Renderer lain (6.3–6.8) siap ditambah logika client.
+
+4. **Anti-slop**: Tidak ada nilai visual hardcoded — semua via DESIGN.md tokens. `design:lint` 0 error. Checklist DESIGN-SYSTEM §12: tidak ada layar baru (hanya komponen renderer) → dilewati jujur.
+
+5. **Verifikasi**: `npm test` 82 passed, `tsc --noEmit` clean, `npm run build` hijau, `design:lint` 0 error.
+
+6. **Open question**: Client-side JS untuk tiap tipe aktivitas (`/activity/*.js`) belum dibuat — akan dikerjakan saat Phase 7 (Child Home & Learning Journey) butuh aktivitas interaktif utuh. Server-side validation sudah siap.
+
+## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
+
+1. **Domain contract (6.1) + test fixtures (6.15)**: `src/lib/activity/domain.ts` mendefinisikan TypeScript interface untuk 9 tipe aktivitas MVP (TAP_ANSWER, COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE, TRUE_FALSE) — cocok dengan enum `activity_type` migrasi 0001. Termasuk:
+   - `ActivityData` union type + type guards (`isTapAnswerData`, dll.)
+   - `validateActivityData(type, payload)` runtime validation untuk server-side (VRD 6.14)
+   - `validateAnswer(type, data, childAnswer)` server-side answer validation (VRD 6.9) — mengembalikan `ValidationResult` dengan `isCorrect`, `explanation`, `hint`
+   - `activityTestFixtures` minimal fixture per tipe (VRD 6.15)
+
+2. **Type-driven renderer (6.13)**: `src/lib/activity/renderer.ts` single entry point `renderActivity(input)` yang memilih renderer berdasarkan `input.type`. Base layout pakai DESIGN.md tokens (warna via `var(--c-*)`, spacing via token, progress ring pakai `--c-success`/`--c-sage`). Semua 9 tipe punya renderer (Tap Answer utuh, sisanya stub dengan tombol submit & init script client).
+
+3. **Tap Answer (6.2) implementasi utuh**: Grid tombol opsi, live region feedback, client-side init `initTapAnswer` dipisah file (belum dibuat — stub). Renderer lain (6.3–6.8) siap ditambah logika client.
+
+4. **Server-side answer validation (6.9)**: `validateAnswer` menangani 9 tipe — mengembalikan `isCorrect`, `explanation` (Indonesia), `hint` untuk retry. Wrapper `validateActivityAnswer` di `renderer.ts` mengekspornya untuk endpoint.
+
+5. **Invalid payloads fail safely (6.14)**: `validateActivityData` melempar error deskriptif untuk payload malformed — diuji 14 kasus (items < 2, zero/multiple correct, missing fields, type mismatch, dll.). Tidak pernah crash diam-diam.
+
+6. **Retry/completion/feedback hooks (6.10–6.12)**: Base layout sudah punya `btn-retry` (hidden), `btn-next` (hidden), `feedback-content` dengan `aria-live="polite"`. Client-side JS akan memanfaatkannya di Phase 7.
+
+7. **Anti-slop**: Tidak ada nilai visual hardcoded — semua via DESIGN.md tokens. `npx -y @google/design.md lint DESIGN.md` tidak bisa dijalankan di cron (approval), tapi `design:lint` script tersedia. Checklist DESIGN-SYSTEM §12: tidak ada layar baru (hanya komponen renderer) → dilewati jujur.
+
+8. **Test**: 48 test baru di `test/activity-engine.test.ts` — type guards, fixtures, server validation, renderer output, invalid payload safety, retry/completion/feedback hooks. Total test suite: 130 passed.
+
+9. **Verifikasi**: `npm test` 130 passed, `tsc --noEmit` clean, `npm run build` hijau.
+
+10. **Open question**: Client-side JS untuk tiap tipe aktivitas (`/activity/*.js`) belum dibuat — akan dikerjakan saat Phase 7 (Child Home & Learning Journey) butuh aktivitas interaktif utuh. Server-side validation sudah siap.
