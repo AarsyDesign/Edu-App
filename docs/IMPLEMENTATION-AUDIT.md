@@ -61,7 +61,8 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
 | 3 | Authentication and Parent Ownership | ✅ DONE | 2026-10-05 (commit `4617165`) — 3.1–3.11 lengkap: endpoint + UI login/daftar + middleware rute + gerbang kepemilikan + **3.9 rate limiting** |
-| 3–19 | sisa VRD | ⬜ BELUM | — |
+| 4 | Child Profile | 🟡 PARTIAL | 2026-10-05 (commit `bc7b848`) — 4.1–4.7 & 4.9–4.10 di server (endpoint + 14 test + smoke E2E); 4.8 & 4.11 (switcher, parent gate) + UI menyusul |
+| 5–19 | sisa VRD | ⬜ BELUM | — |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan desain Phase 2 (VRD 2.1–2.15)
@@ -215,6 +216,48 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    membuktikan login ke-4 → 429 + `retry-after`, dan kuota register yang
    terpisah tetap 201.
 
+## Keputusan Phase 4 — API profil anak (VRD 4.1–4.7, 4.9–4.10, 2026-10-05)
+
+1. **Namespace memakai `/api/children`** — sudah masuk `PROTECTED_PREFIXES`
+   sejak Phase 3 (middleware 3.5), sehingga seluruh endpoint anak ikut
+   terjaga sesi tanpa kode tambahan. OQ 11 resmi terjawab: tidak ada
+   prefiks baru.
+2. **Sesi dibaca dari `locals.parentSession`** (dititipkan middleware yang
+   sudah memvalidasi token ke database). Bila sesi tidak ada di konteks →
+   401 `UNAUTHENTICATED`; tidak pernah ada fallback ke body/kueri/parameter
+   (VRD 3.8). `parent_account_id` selalu berasal dari sesi itu.
+3. **Validasi ketat & terdokumentasi** (`src/lib/children/profiles.ts`):
+   hanya kunci yang dikenal (`nickname`, `age`, `avatarKey`, `language`,
+   `learningGoals`) — kunci asing = 400 supaya salah ketik tidak diam-diam
+   diabaikan; usia harus integer 3–7 (angka pecahan/teks ditolak, konsisten
+   dengan CHECK di skema); nickname di-trim lalu 1–40; avatar berbentuk
+   kunci `^[a-z0-9_-]{1,40}$`; bahasa cocok dengan pola kolom `language`
+   (default `id`); learning goals maksimal 6 butir à 40 karakter.
+4. **Nickname aktif unik per akun** memakai index parsial migrasi 0001 —
+   tabrakan (termasuk beda kapital/spasi) ditangkap dan dilaporkan
+   `409 NICKNAME_TAKEN`, bukan error 500.
+5. **Kepemilikan lewat `getChildForParent()`** (gerbang VRD 3.7) untuk
+   PATCH/DELETE, ditambah klausa `archived_at IS NULL` pada UPDATE. Id
+   milik orang lain, id rusak, id tidak ada, dan profil terarsip → **404
+   dengan badan identik** (anti-enumerasi, VRD 3.11).
+6. **Arsip, bukan hapus permanen (4.10)**: `DELETE /api/children/:id`
+   mengisi `archived_at`; baris profil + riwayat belajar tetap ada. PRD §14
+   meminta strategi retensi yang bisa dikonfigurasi tetapi tidak
+   memberi nilainya → lihat OQ 14. Arsip bersifat **idempoten** (ulang = 200).
+7. **Bentuk respons** `publicChild()`: `childId, nickname, age, avatarKey,
+   language, learningGoals, archivedAt, createdAt` — tanpa
+   `parentAccountId`, tanpa kolom lain; `cache-control: no-store`.
+8. **CSRF**: seluruh endpoint anak memeriksa header `Origin` (403) seperti
+   endpoint auth; body dibatasi 8 KB; pesan galat hanya `{error, message}`.
+9. **Rate limiting tidak dipasang** di endpoint anak: endpoint sudah wajib
+   sesi, sehingga risikonya berbeda dengan auth yang terbuka (OQ 8 tetap
+   berlaku bila kelak ada endpoint publik terkait anak).
+10. **Smoke E2E diperluas** (`npm run smoke:auth`): kini membuktikan
+    `/api/children` tanpa sesi → 401, create 201, daftar, dup 409, usia
+    salah 400, PATCH 200, id tak dikenal 404, lintas-asal 403, DELETE 200 +
+    `archivedAt`, daftar aktif kosong sesudah arsip — lewat HTTP sungguhan
+    ke server hasil build, bukan konteks tiruan.
+
 ## OPEN QUESTION
 1. ~~Database: mesin lokal tidak punya PostgreSQL~~ → **SELESAI 2026-10-05**:
    PGlite dipakai lewat `src/lib/db/` (Keputusan Phase 2 no. 1). Bila Arsyad
@@ -254,9 +297,29 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     global di DESIGN.md + tokens.css (mis. `#6C776F` → `#687269`, 4,77:1),
     keputusan palet yang menyinggung banyak layar → jalankan bersama Phase 17
     (Anti-Slop Visual QA), bukan diam-diam di run UI.
-11. **Konvensi namespace API terlindungi**: gerbang middleware kini menjaga
-    `/parent`, `/api/parent`, dan `/api/children`. PRD/VRD tidak menentukan
-    bentuk endpoint profil anak, jadi prefiks itu adalah **asumsi penamaan**,
-    bukan kebutuhan. Bila Phase 4 memakai namespace lain, tambahkan ke
-    `PROTECTED_PREFIXES` **dan** tetap panggil `getChildForParent()` — jangan
-    mengandalkan prefiks saja untuk kepemilikan.
+11. ~~**Konvensi namespace API terlindungi**: gerbang middleware menjaga
+    `/parent`, `/api/parent`, dan `/api/children` — asumsi penamaan, bukan
+    kebutuhan PRD~~ → **TERJAWAB 2026-10-05**: Phase 4 memakai persis
+    prefiks `/api/children`, jadi tidak ada `PROTECTED_PREFIXES` baru
+    (Keputusan Phase 4 no. 1); `getChildForParent()` tetap dipanggil di
+    setiap handler.
+12. **Kosakata "learning goals"**: PRD §8 hanya menyebut field-nya tanpa
+    daftar pilihan. Sementara disimpan sebagai teks bebas (trim, maks 6
+    butir à 40 karakter) — bukan enum. Bila Phase 5 memilih kosakata
+    berbasis enam learning area (PRD §4), cukup ganti pemilihan di UI;
+    kolom `text[]` tidak perlu dimigrasi. Konfirmasi pilihan akhir oleh
+    Arsyad sebelum UI onboarding diselesaikan.
+13. **Daftar bahasa yang tersedia**: PRD §8 meminta pemilihan bahasa tanpa
+    menyebut bahasa apa saja. Endpoint menerima pola kolom `language`
+    (default `id`); UI sementara hanya menawarkan `id`. Bila MVP ingin
+    Inggris, tentukan kode + terjemahannya — itu keputusan konten.
+14. **Retensi & penghapusan permanen (PRD §14)**: belum ada kebijakan.
+    Kini hanya arsip (`archived_at`), tanpa hard delete, dan **tanpa
+    jalur restore** — PRD/VRD 4.10 tidak menyebut pemulihan. Bila Arsyad
+    ingin "kembalikan profil terarsip" atau "hapus permanen + riwayat",
+    tambahkan endpoint baru (jangan menambah perilaku diam-diam).
+15. **Katalog avatar non-hidup**: PRD §8 hanya menulis "optional non-living
+    avatar". Endpoint menerima kunci `^[a-z0-9_-]{1,40}$` tanpa memvalidasi
+    keanggotaan katalog; pilihan motif (bintang, buku, bulan, lentera —
+    mengikuti daftar ilustrasi DESIGN.md) ditentukan saat UI profil anak,
+    dan validasi katalog menyusul bersamanya.
