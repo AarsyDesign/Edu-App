@@ -9,7 +9,7 @@
  *   waktunya mirip, bukan hanya pesannya.
  * - Registrasi tetap memberi tahu email sudah dipakai (VRD 3.1 butuh umpan
  *   balik yang bisa ditindaklanjuti); perlindungan terhadap enumerasi lewat
- *   registrasi diserahkan ke rate limiting (VRD 3.9, run berikutnya).
+ *   registrasi ditangani rate limiting (VRD 3.9).
  * - Semua kegagalan memakai kode + pesan aman, tanpa detail internal
  *   (VRD 3.10: safe error messages).
  */

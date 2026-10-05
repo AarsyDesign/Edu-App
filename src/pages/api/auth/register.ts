@@ -12,13 +12,28 @@ import {
   readJsonBody,
   setSessionCookie,
 } from "../../../lib/auth/http.ts";
+import {
+  clientKey,
+  consumeRateLimit,
+  rateLimitResponse,
+  registerRateRule,
+} from "../../../lib/auth/rate-limit.ts";
 import { createSession } from "../../../lib/auth/session.ts";
 import { getDb } from "../../../lib/db/index.ts";
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async (context) => {
+  const { request, cookies } = context;
   if (!isSameOrigin(request)) {
     return errorResponse(403, "FORBIDDEN", "Permintaan ditolak.");
   }
+
+  // 3.9 — kuota per klien+endpoint; mencegah pendaftaran massal sekaligus
+  // membatasi enumerasi email lewat balasan 409 (lihat OQ 8).
+  const verdict = consumeRateLimit(
+    `register:${clientKey(context)}`,
+    registerRateRule(),
+  );
+  if (!verdict.allowed) return rateLimitResponse(verdict.retryAfterSec);
 
   const body = await readJsonBody(request);
   if (!body) {

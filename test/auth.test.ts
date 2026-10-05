@@ -5,8 +5,9 @@
  * konteks tiruan, termasuk flag cookie, kedaluwarsa sesi, cabut sesi, dan
  * penolakan permintaan lintas-asal. Database in-memory bersih per file test.
  *
- * Catatan: proteksi rute orang tua (3.5), API profil anak (3.6–3.7), rate
- * limiting (3.9) dan UI login/daftar dikerjakan pada run VRD berikutnya.
+ * Catatan: proteksi rute orang tua (3.5), API profil anak (3.6–3.7), UI
+ * login/daftar, dan rate limiting (3.9) diuji di file test lain
+ * (`route-guard.test.ts`, `auth-ui.test.ts`, `rate-limit.test.ts`).
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

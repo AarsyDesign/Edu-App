@@ -12,13 +12,28 @@ import {
   readJsonBody,
   setSessionCookie,
 } from "../../../lib/auth/http.ts";
+import {
+  clientKey,
+  consumeRateLimit,
+  loginRateRule,
+  rateLimitResponse,
+} from "../../../lib/auth/rate-limit.ts";
 import { createSession } from "../../../lib/auth/session.ts";
 import { getDb } from "../../../lib/db/index.ts";
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async (context) => {
+  const { request, cookies } = context;
   if (!isSameOrigin(request)) {
     return errorResponse(403, "FORBIDDEN", "Permintaan ditolak.");
   }
+
+  // 3.9 — kuota per klien+endpoint sebelum pekerjaan scrypt, sehingga
+  // credential stuffing dari satu sumber dibatasi tanpa memicu hash.
+  const verdict = consumeRateLimit(
+    `login:${clientKey(context)}`,
+    loginRateRule(),
+  );
+  if (!verdict.allowed) return rateLimitResponse(verdict.retryAfterSec);
 
   const body = await readJsonBody(request);
   if (!body) {

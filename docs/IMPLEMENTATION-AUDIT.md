@@ -60,7 +60,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 0 | Repository and Environment Audit | ✅ DONE | 2026-10-04 (commit `cbe7564`) |
 | 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
-| 3 | Authentication and Parent Ownership | 🔶 PARTIAL | 2026-10-05 (commit `109ff0c`) — 3.1–3.4, 3.5–3.8, 3.10, 3.11 (endpoint + UI login/daftar + middleware rute + gerbang kepemilikan); **sisa 3.9 (rate limiting)** |
+| 3 | Authentication and Parent Ownership | ✅ DONE | 2026-10-05 (commit menyusul) — 3.1–3.11 lengkap: endpoint + UI login/daftar + middleware rute + gerbang kepemilikan + **3.9 rate limiting** |
 | 3–19 | sisa VRD | ⬜ BELUM | — |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
@@ -185,6 +185,36 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    `/login`, `/parent` bersesi → 200 "Area Orang Tua", `/api/parent/*`
    tanpa sesi → 401, `/parent` sesudah logout → 303.
 
+## Keputusan Phase 3 — rate limiting (VRD 3.9, 2026-10-05)
+
+1. **Bentuk (menjawab OQ 8)**: penghitung **jendela tetap per
+   `endpoint:alamat-klien` di memori proses** (`src/lib/auth/rate-limit.ts`),
+   bukan tabel database. PRD §19 menuntut satu deployable tanpa Redis/queue
+   dan aplikasi berjalan satu proses; tabel database baru hanya perlu bila
+   prosesnya banyak. Konsekuensi diterima: penghitung hilang saat restart.
+2. **Kunci memakai `context.clientAddress` (alamat soket)** —
+   `X-Forwarded-For` sengaja tidak dipercaya karena belum ada keputusan
+   deployment/proxy tepercaya (OQ 2); mempercayainya membuat kuota bisa
+   dilewati dengan header palsu. Prefiks endpoint memisahkan kuota login vs
+   registrasi.
+3. **Batas default: 15 percobaan / 15 menit** per klien per endpoint,
+   overridable via env `RATE_LIMIT_LOGIN_MAX`, `RATE_LIMIT_REGISTER_MAX`,
+   `RATE_LIMIT_WINDOW_MIN`. Sengaja longgar agar keluarga di balik satu NAT
+   tidak terblokir; cukup sebagai "basic" melawan credential stuffing
+   (SECURITY-PRIVACY: rate limiting).
+4. **Cek berjalan sesudah penolakan lintas-asal tetapi sebelum body dibaca /
+   scrypt dijalankan** → 429 murah, tidak memicu kerja hash. Respons:
+   `429 RATE_LIMITED` + header `retry-after`, JSON aman tanpa detail
+   internal, `cache-control: no-store` (VRD 3.10 tetap berlaku).
+5. **Pembatas memori**: maksimum 5000 kunci; lewat itu entri kedaluwarsa
+   dibuang, dan bila masih penuh kunci tertua di-drop — serangan memutar
+   kunci tidak bisa membuat memori meledak.
+6. **Enumerasi email via registrasi 409 (catatan 3.11)** kini ikut dibatasi
+   kuota yang sama; umpan balik "email sudah terdaftar" tetap dipertahankan.
+7. **E2E**: `scripts/smoke-auth.mjs` kini menyetel kuota kecil lalu
+   membuktikan login ke-4 → 429 + `retry-after`, dan kuota register yang
+   terpisah tetap 201.
+
 ## OPEN QUESTION
 1. ~~Database: mesin lokal tidak punya PostgreSQL~~ → **SELESAI 2026-10-05**:
    PGlite dipakai lewat `src/lib/db/` (Keputusan Phase 2 no. 1). Bila Arsyad
@@ -211,9 +241,11 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 7. **Verifikasi email**: registrasi kini langsung aktif (PRD tidak menyebut
    konfirmasi email). Bila ingin divalidasi, butuh provider email dan itu
    menambah keputusan infrastruktur.
-8. **Bentuk rate limiting (VRD 3.9)**: kandidat = penghitung per IP+endpoint di
-   memori proses (cukup untuk satu deployable) vs tabel di database (tahan bila
-   proses banyak). Belum dikerjakan — putuskan bersamaan dengan pelaksanaan 3.9.
+8. ~~**Bentuk rate limiting (VRD 3.9)**: kandidat = penghitung per IP+endpoint
+   di memori proses vs tabel di database~~ → **SELESAI 2026-10-05**: dipilih
+   penghitung per `endpoint:alamat-klien` di memori proses (Keputusan
+   "rate limiting" no. 1). Bila kelak berjalan banyak proses, pindahkan ke
+   tabel database lewat migrasi baru.
 9. **Cookie `Secure`/HTTPS**: aktif otomatis saat `NODE_ENV=production`; nilai
    praktisnya baru benar setelah deployment target + HTTPS tersedia (OQ 2).
 10. **Kontras `--c-muted-ink` di atas ivory**: 4,45:1 (sedikit di bawah 4,5:1)

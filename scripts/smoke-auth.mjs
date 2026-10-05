@@ -24,7 +24,14 @@ await rm(DB_DIR, { recursive: true, force: true });
 
 const server = spawn("node", ["./dist/server/entry.mjs"], {
   cwd: process.cwd(),
-  env: { ...process.env, PORT: String(PORT), PGLITE_DIR: DB_DIR },
+  env: {
+    ...process.env,
+    PORT: String(PORT),
+    PGLITE_DIR: DB_DIR,
+    // Kuota sengaja kecil supaya smoke bisa membuktikan 429 sungguhan (VRD 3.9).
+    RATE_LIMIT_LOGIN_MAX: "3",
+    RATE_LIMIT_REGISTER_MAX: "10",
+  },
   stdio: ["ignore", "pipe", "pipe"],
 });
 server.stdout.on("data", (d) => process.stdout.write(`[srv] ${d}`));
@@ -203,6 +210,34 @@ try {
 
   const notFound = await post("/api/auth/login", { email: "" });
   check("body tidak valid 400", notFound.status === 400);
+
+  // --- rate limiting (VRD 3.9): 3 login sudah terpakai di atas, ke-4 = 429 ---
+  const limited = await post("/api/auth/login", {
+    email: "smoke@contoh.id",
+    password: "salah-satu-99",
+  });
+  console.log("login dibatasi:", limited.status, JSON.stringify(limited.body));
+  check(
+    "login ke-4 → 429 RATE_LIMITED dengan retry-after",
+    limited.status === 429 && limited.body?.error === "RATE_LIMITED",
+  );
+  const limitedRes = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify({ email: "smoke@contoh.id", password: "x" }),
+  });
+  check(
+    "respons 429 membawa header retry-after",
+    Number(limitedRes.headers.get("retry-after")) > 0,
+  );
+  // Klien lain (beda kunci) tidak ikut terblokir → pakai header anti-spoof
+  // tidak bisa; bukti cukup dengan kuota endpoint terpisah: register tetap jalan.
+  const afterLimitReg = await post("/api/auth/register", {
+    email: "smoke-lain@contoh.id",
+    displayName: "Lain Dua",
+    password: "sand1-kuat-99",
+  });
+  check("kuota register terpisah tetap 201", afterLimitReg.status === 201);
 } catch (err) {
   failed += 1;
   console.error("SMOKE_FAIL", err);
