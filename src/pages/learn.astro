@@ -1,0 +1,55 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Belajar" mode="child">
+  <section class="empty">
+    <div class="mark" aria-hidden="true">
+      <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+        <rect x="14" y="18" width="52" height="44" rx="8" fill="#DDEAF5" stroke="#174A3A" stroke-width="3" />
+        <path d="M40 26v32M24 32h12M44 32h12" stroke="#174A3A" stroke-width="3" stroke-linecap="round" />
+      </svg>
+    </div>
+    <h1>Belum ada kegiatan</h1>
+    <p class="sub">
+      Jalur belajar akan muncul setelah profil anak dan kegiatan pertama siap.
+    </p>
+    <a class="btn-ghost" href="/">Kembali</a>
+  </section>
+</BaseLayout>
+
+<style>
+  .empty {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: var(--sp-3);
+    padding: var(--sp-6) 0;
+  }
+  h1 {
+    font-size: var(--fs-xl);
+    margin: 0;
+  }
+  .sub {
+    color: var(--c-muted-ink);
+    max-width: 36ch;
+    margin: 0;
+  }
+  .btn-ghost {
+    margin-top: var(--sp-4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-6);
+    border-radius: var(--r-control);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--c-deep-green);
+  }
+</style>

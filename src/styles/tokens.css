@@ -1,0 +1,88 @@
+/* Design tokens — DESIGN-SYSTEM.md (Calm Islamic Kids Learning UI)
+ * Sumber kebenaran nilai visual. Jangan pakai nilai hardcoded di component. */
+
+:root {
+  /* Palette */
+  --c-ivory: #fff9ee;
+  --c-warm-white: #fffcf7;
+  --c-deep-green: #174a3a;
+  --c-soft-green: #ddede2;
+  --c-sage: #a9c7b3;
+  --c-warm-yellow: #f5e885;
+  --c-soft-blue: #ddeaf5;
+  --c-soft-peach: #f7dccb;
+  --c-ink: #26332d;
+  --c-muted-ink: #6c776f;
+  --c-success: #3f8f62;
+  --c-warning: #c68a25;
+  --c-error: #b85a52;
+
+  /* Typography (rounded humanist sans + body sans) */
+  --font-heading: "Nunito Sans", "Nunito", ui-rounded, system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 1.875rem;
+  --fs-3xl: 2.25rem;
+
+  --lh-tight: 1.2;
+  --lh-normal: 1.5;
+
+  /* Spacing (skala 4px) */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-10: 2.5rem;
+  --sp-12: 3rem;
+  --sp-16: 4rem;
+
+  /* Radius — 16–24px kartu besar, 12–16px kontrol (DESIGN-SYSTEM §4) */
+  --r-card: 20px;
+  --r-card-lg: 24px;
+  --r-control: 14px;
+  --r-pill: 999px;
+
+  /* Elevation lembut, border tipis > shadow berat */
+  --shadow-soft: 0 1px 2px rgb(38 51 45 / 0.04), 0 4px 12px rgb(38 51 45 / 0.06);
+  --border-subtle: 1px solid rgb(38 51 45 / 0.08);
+
+  /* Motion — micro-interaction 120–700ms (DESIGN-SYSTEM §7) */
+  --dur-tap: 150ms;
+  --dur-card: 240ms;
+  --dur-page: 280ms;
+  --dur-success: 500ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Touch target besar (PRD §16: large touch targets, min 44px) */
+  --touch-min: 44px;
+
+  /* Breakpoints (referensi, dipakai di media query) */
+  /* sm: 430px (HP besar) · md: 768px (tablet) · lg: 1024px (desktop) */
+}
+
+/* Reduced motion: matikan animasi non-esensial (PRD §16, DS §7) */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-tap: 0ms;
+    --dur-card: 0ms;
+    --dur-page: 0ms;
+    --dur-success: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

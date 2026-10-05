@@ -1,0 +1,63 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  /** Mode halaman: 'child' (sederhana, satu aksi) atau 'parent' (boleh lebih padat) */
+  mode?: "child" | "parent";
+}
+
+const { title = "Aplikasi Belajar", mode = "parent" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="description" content="Aplikasi belajar tenang untuk anak usia 3–7 tahun." />
+    <title>{title}</title>
+  </head>
+  <body data-mode={mode}>
+    <a href="#main" class="skip-link">Lewati ke konten utama</a>
+    <main id="main" class="container">
+      <slot />
+    </main>
+    <script>
+      // Simpan preferensi audio di localStorage (VRD 1.11).
+      // Musik OFF by default (PRD §15) — hanya efek suara opsional.
+      const KEY = "edu.audio";
+      const MUSIC_OFF_DEFAULT = { music: false, sfx: true, voice: true };
+      export function getAudioPref(): typeof MUSIC_OFF_DEFAULT {
+        try {
+          const raw = localStorage.getItem(KEY);
+          return raw ? { ...MUSIC_OFF_DEFAULT, ...JSON.parse(raw) } : MUSIC_OFF_DEFAULT;
+        } catch {
+          return MUSIC_OFF_DEFAULT;
+        }
+      }
+      export function setAudioPref(p: Partial<typeof MUSIC_OFF_DEFAULT>) {
+        const next = { ...getAudioPref(), ...p };
+        localStorage.setItem(KEY, JSON.stringify(next));
+        return next;
+      }
+      window.eduAudio = { get: getAudioPref, set: setAudioPref };
+    </script>
+    <style is:global>
+      .skip-link {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        background: var(--c-deep-green);
+        color: var(--c-warm-white);
+        padding: var(--sp-2) var(--sp-4);
+        z-index: 100;
+        border-radius: 0 0 var(--r-control) 0;
+      }
+      .skip-link:focus {
+        left: 0;
+      }
+    </style>
+  </body>
+</html>

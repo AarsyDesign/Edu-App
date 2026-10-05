@@ -1,0 +1,79 @@
+/* Base reset + typography ringan. Diimpor sekali oleh BaseLayout. */
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-ivory);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  min-height: 100dvh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  line-height: var(--lh-tight);
+  color: var(--c-deep-green);
+  margin: 0 0 var(--sp-3);
+}
+
+p {
+  margin: 0 0 var(--sp-4);
+}
+
+a {
+  color: var(--c-deep-green);
+}
+
+img,
+svg {
+  max-width: 100%;
+  display: block;
+}
+
+/* Fokus terlihat & konsisten (accessibility) */
+:focus-visible {
+  outline: 3px solid var(--c-deep-green);
+  outline-offset: 2px;
+  border-radius: var(--r-control);
+}
+
+/* Touch target minimal 44px */
+button,
+[role="button"],
+a.button {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+}
+
+/* Container utama */
+.container {
+  width: min(100% - 2 * var(--sp-4), 1024px);
+  margin-inline: auto;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

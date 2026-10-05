@@ -1,0 +1,50 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Area Orang Tua" mode="parent">
+  <section class="empty">
+    <h1>Area Orang Tua</h1>
+    <p class="sub">
+      Dasbor orang tua (profil anak, progress, pengaturan) menyusul setelah modul
+      profil & progress dibangun — lihat VRD Phase 10.
+    </p>
+    <a class="btn-ghost" href="/">Kembali</a>
+  </section>
+</BaseLayout>
+
+<style>
+  .empty {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: var(--sp-3);
+    padding: var(--sp-6) 0;
+  }
+  h1 {
+    font-size: var(--fs-xl);
+    margin: 0;
+  }
+  .sub {
+    color: var(--c-muted-ink);
+    max-width: 44ch;
+    margin: 0;
+  }
+  .btn-ghost {
+    margin-top: var(--sp-4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-6);
+    border-radius: var(--r-control);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--c-deep-green);
+  }
+</style>
