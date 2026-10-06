@@ -155,6 +155,35 @@ const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
           </ul>
         </section>
       )}
+
+      {areas.length > 0 && (
+        <section class="section" aria-label="Progress area belajar">
+          <h2>Area Belajar</h2>
+          <ul class="area-list">
+            {areas.map((area) => (
+              <li class="area-item">
+                <div class="area-main">
+                  <span class="area-title">{area.title}</span>
+                  <span class="area-progress-text">
+                    {area.attempted} dari {area.totalSkills} skill
+                  </span>
+                </div>
+                <div class="area-progress-wrapper">
+                  <progress
+                    class="area-progress"
+                    value={area.attempted}
+                    max={area.totalSkills}
+                    aria-label={`Progress ${area.title}: ${area.attempted} dari ${area.totalSkills} skill`}
+                  ></progress>
+                  <span class="area-completed">
+                    {area.completed > 0 && `${area.completed} selesai`}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>) : (
     <div class="empty-state">
       <h2>Belum ada latihan</h2>
@@ -389,5 +418,88 @@ const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
   }
   .session-ended {
     color: var(--c-muted-ink);
+  }
+
+  /* Area learning progress (VRD 10.3) */
+  .area-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .area-item {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-4);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-3) var(--sp-4);
+    align-items: center;
+  }
+  @media (max-width: 480px) {
+    .area-item {
+      grid-template-columns: 1fr;
+    }
+  }
+  .area-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+  .area-title {
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    color: var(--c-ink);
+  }
+  .area-progress-text {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  .area-progress-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    align-items: flex-end;
+    min-width: 140px;
+  }
+  @media (max-width: 480px) {
+    .area-progress-wrapper {
+      align-items: flex-start;
+      width: 100%;
+    }
+  }
+  .area-progress {
+    width: 100%;
+    height: 8px;
+    appearance: none;
+    border-radius: var(--r-pill);
+    background: var(--c-soft-green);
+    border: none;
+  }
+  .area-progress::-webkit-progress-bar {
+    background: var(--c-soft-green);
+    border-radius: var(--r-pill);
+  }
+  .area-progress::-webkit-progress-value {
+    background: var(--c-deep-green);
+    border-radius: var(--r-pill);
+    transition: width var(--dur-card) var(--ease-out);
+  }
+  .area-progress::-moz-progress-bar {
+    background: var(--c-deep-green);
+    border-radius: var(--r-pill);
+  }
+  .area-completed {
+    font-size: var(--fs-xs);
+    color: var(--c-success);
+    font-weight: 600;
+  }
+  .reduce-motion .area-progress::-webkit-progress-value,
+  .reduce-motion .area-progress::-moz-progress-bar {
+    transition: none;
   }
 </style>
