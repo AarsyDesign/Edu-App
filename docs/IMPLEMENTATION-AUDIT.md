@@ -65,6 +65,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 5 | Learning Areas and Skills | ✅ DONE | 2026-10-05 (commit `...`) — 5.1–5.6 lengkap: 6 learning area + 53 skill (seed migrasi 0003), query API baca + filter usia, 10 test |
 || 6 | Activity Engine | ✅ DONE | 2026-10-05 (commit `...`) — 6.1 domain contract + 6.2–6.8 renderers + 6.13 type-driven renderer + 6.9 server validation + 6.15 test fixtures + **48 test baru** (type guards, fixtures, server validation, renderer, invalid payload safety, retry/completion/feedback hooks); semua 130 test hijau |
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; renderer pakai DESIGN.md tokens, anti-slop checklist layar dilewati (tidak ada layar baru yang butuh lint DESAIN.md karena tidak ada halaman baru terpisah) |
+| 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding baseline belum ada** (menyusul run berikutnya) |
 || 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -280,6 +281,58 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     `archivedAt`, daftar aktif kosong sesudah arsip — lewat HTTP sungguhan
     ke server hasil build, bukan konteks tiruan.
 
+## Keputusan Phase 8 — Baseline Assessment (VRD 8.1–8.8, mesin + endpoint, 2026-10-05)
+
+1. **Modul mesin**: `src/lib/assessment/baseline.ts` — pemilihan aktivitas,
+   estimasi kemampuan per skill, rekomendasi titik mulai, penyimpanan hasil.
+   Endpoint `src/pages/api/assessment/baseline.ts` (GET/POST/DELETE) hanya
+   membungkus modul itu + gerbang kepemilikan.
+2. **8.1 usia menentukan kolam awal**: kandidat = `listPublishedActivitiesForAge`
+   (PUBLISHED + `target_age_min <= age <= target_age_max`). Aktivitas DRAFT/
+   HUMAN_REVIEW/QA_APPROVED tidak pernah masuk (PRD §7). Kolam kosong →
+   daftar kosong, tidak ada konten yang dikarang.
+3. **8.2 randomize within controlled difficulty**: kandidat diacak **dalam band
+   kesukaran menaik (1 → 2 → 3)**; selama difficulty 1 mencukupi, difficulty 2/3
+   tidak terpakai. Sebaran minimal **satu aktivitas per learning area** sebelum
+   area yang sama dipakai ulang. Pengacakan Fisher–Yates dengan PRNG
+   **mulberry32 yang diseed FNV-1a(childId)** — deterministik per anak:
+   GET ulang mengembalikan kumpulan yang sama (jawaban anak tetap nyambung
+   bila halaman di-refresh), tetapi beda anak → beda kumpulan.
+4. **8.8 pendek**: default 8, dibatasi rentang **5–10**; bila isi kolam lebih
+   kecil, yang ada dipakai apa adanya. Endpoint POST menolak <5 atau >10
+   percobaan. (Kolam <5 baru mungkin sebelum Phase 13 menanam konten — lihat
+   OQ 17.)
+5. **8.3 penyimpanan**: satu baris `learning_session` dengan
+   `started_at = ended_at` (= penanda sesi baseline, tanpa kolom baru),
+   percobaan masuk `activity_attempt` (attempt_no = 1, `session_id` terisi),
+   dan `learning_progress` di-*upsert* (attempts/correct bertambah).
+   Penanda ini memanfaatkan fakta skema: `activity_attempt.session_id` memang
+   nullable untuk asesmen dasar (komentar migrasi 0001).
+6. **8.4 estimasi**: akurasi per skill → level 1/2/3 dengan ambang ≥0,5 → 2
+   dan ≥0,8 → 3. Ambang ini **belum didukung bukti** (VRD 9.6 meminta mastery
+   threshold hanya bila ada bukti) → dipakai hanya untuk **urutan rekomendasi**,
+   bukan label yang ditampilkan ke anak.
+7. **8.5 titik mulai**: skill usia anak yang punya aktivitas PUBLISHED, urut
+   (belum dicoba lebih dulu) → level estimasi naik. Deterministik dan bisa
+   diuji (acceptance Phase 8).
+8. **8.6 tanpa mempermalukan**: respons tidak memuat kata lulus/gagal/
+   peringkat; yang keluar hanya `sessionId`, `skillEstimates`
+   `{correct, total, estimatedLevel}`, `recommendedStartingSkills`.
+   Test memetakan seluruh struktur dan menolak kunci/nilai berlabel.
+9. **8.7 mulai ulang**: `DELETE /api/assessment/baseline?child=` menghapus
+   **hanya baris `learning_session` baseline**; `activity_attempt` tetap ada
+   (`session_id` jadi NULL — memang nullable untuk baseline), jadi jejak
+   jawaban anak tidak pernah hilang. **Lewat (skip)** = orang tua tidak pernah
+   memulai asesmen; karena rekomendasi Phase 7 tetap bekerja tanpa baseline,
+   skip tidak butuh state server — cukup tombol "nanti saja" di UI.
+10. **Prefix baru `/api/assessment`** ditambahkan ke `PROTECTED_PREFIXES`
+    (VRD 3.5) sehingga seluruh endpoint baseline terjaga sesi oleh middleware
+    tanpa kode tambahan; POST/DELETE juga memeriksa `Origin` (CSRF berlapis)
+    dan body dibatasi 8 KB `readJsonBody`.
+11. **Verifikasi**: `npm test` **142 passed** (12 baru di
+    `test/phase8-baseline.test.ts`), `tsc --noEmit` bersih, `npm run build`
+    hijau, `npx -y @google/design.md lint DESIGN.md` → **0 error, 0 warning**.
+
 ## OPEN QUESTION
 1. ~~Database: mesin lokal tidak punya PostgreSQL~~ → **SELESAI 2026-10-05**:
    PGlite dipakai lewat `src/lib/db/` (Keputusan Phase 2 no. 1). Bila Arsyad
@@ -345,6 +398,19 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    keanggotaan katalog; pilihan motif (bintang, buku, bulan, lentera —
    mengikuti daftar ilustrasi DESIGN.md) ditentukan saat UI profil anak,
    dan validasi katalog menyusul bersamanya.
+16. **Titik masuk UI baseline (VRD 8.7 "skip")**: PRD §8 menaruh "mulai
+    asesmen dasar" sebagai langkah 8 onboarding, tetapi tidak menyebut
+    layarnya ada di mana. Endpoint sudah siap (GET/POST/DELETE); yang belum
+    diputuskan: baseline jadi langkah wajib setelah profil anak dibuat, atau
+    saran opsional di `/learn` dengan tombol "nanti saja". Rekomendasi
+    sementara: opsional di `/learn` + tombol reset di dashboard orang tua —
+    belum dieksekusi, menunggu konfirmasi supaya tidak mengarang alur
+    onboarding.
+17. **Kolam baseline < 5 aktivitas sebelum Phase 13**: `GET` mengembalikan
+    aktivitas yang tersedia apa adanya, tetapi `POST` menolak <5 percobaan
+    (VRD 8.8). Konsekuensinya asesmen belum bisa diselesaikan sampai Phase 13
+    menanam konten — **bukan bug**, sengaja tidak ditambal dengan konten uji
+    yang dipublikasikan. Setelah Phase 13 kolam tiap usia melebihi 5.
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
