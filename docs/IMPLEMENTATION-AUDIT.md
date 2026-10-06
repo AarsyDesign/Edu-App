@@ -68,6 +68,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
 || 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-06 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) di bawah 3 fakta — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4–10.5 menyusul** (kekuatan, saran latihan), 10.6 sudah ada grid pengaturan |
+| 11 | Content Management | 🟡 PARTIAL | 2026-10-06 (commit `94c890c`) — **11.1 batasan autentikasi admin/konten** selesai: migrasi 0004 (reviewer_account, reviewer_session terpisah dari parent_account per PRD §13), middleware guard reviewer untuk `/reviewer` & `/api/reviewer`, halaman login `/reviewer/login`, endpoint `POST /api/reviewer/auth/login` (rate limit terpisah, CSRF, timing-safe), 187 test hijau, tsc/build/lint bersih; **11.2–11.14 menyusul** (editor aktivitas, review workflow, publish gate) |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -912,13 +913,6 @@ Konteks: mesin ringkasan 9.8 sudah ada tanpa UI; langkah aman menunjuk
   Arsyad soal titik masuk, **dan** sampai Phase 13 menanam konten kolam
   baseline <5 aktivitas (POST menolak) sehingga layarnya akan selalu buntu.
   Jangan bangun layar mati — tunda sampai salah satu syarat terpenuhi.
-- **Langkah aman berikutnya: VRD 10.4 — strengths** di layar
-  `/parent/anak/:id`: tampilkan fakta akurasi per skill dari
-  `summary.skills` (urut skillId, tanpa label "terkuat" sebelum ada ambang,
-  VRD 9.6/9.7). Lanjutan: **10.5 suggested practice**
-  (`summary.nextRecommendation` + tautan ke layar aktivitas).
-  Item ini **menyentuh UI → checklist anti-slop DESIGN-SYSTEM §12 wajib**,
-  plus lint DESIGN.md 0 error dan QA E2E eksploratif 390px/768px.
-- **Verifikasi ulang tiap run**: `npm test && npx tsc --noEmit && npm run
-  build && node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`).
+- **Langkah aman berikutnya: VRD 11.2 — activity editor** di `/reviewer/aktivitas/baru` dan `/reviewer/aktivitas/:id/edit`: formulir buat/ubah aktivitas (prompt, tipe interaksi, opsi, jawaban benar, penjelasan, learning area, usia, kesukaran, asal konten, status review). Item ini **menyentuh UI → checklist anti-slop DESIGN-SYSTEM §12 wajib**, plus lint DESIGN.md 0 error dan QA E2E eksploratif 390px/768px.
+- **Verifikasi ulang tiap run**: `npm test && npx tsc --noEmit && npm run build && node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`).
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**
