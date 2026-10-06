@@ -1,0 +1,475 @@
+---
+/**
+ * Formulir profil anak (VRD 4.1–4.6, 4.9) — dipakai dua halaman:
+ * `/parent/profil/baru` (mode="create") dan `/parent/profil/[id]/edit`
+ * (mode="edit").
+ *
+ * Isi mengikuti PRD §8 "Child Onboarding" minimal flow persis: nickname,
+ * usia 3/4/5/6/7, avatar non-hidup (opsional), bahasa, learning goals — dan
+ * TIDAK meminta nama lengkap, tanggal lahir, alamat, telepon, sekolah, foto.
+ *
+ * Pengiriman: JSON ke endpoint `/api/children` yang sudah ada (POST buat,
+ * PATCH ubah), sehingga seluruh validasi & gerbang kepemilikan tetap di
+ * server. Tanpa JavaScript, browser mengirim POST form-urlencoded ke endpoint
+ * yang sama dan server menjawab dengan galat aman — konsisten dengan pola
+ * `ParentAuthForm` (VRD 3.1): tanpa JS tidak ada jalur tulis yang diam-diam
+ * dilewati.
+ *
+ * Katalog avatar mengikuti daftar ilustrasi DESIGN.md (bintang, buku, bulan,
+ * lentera) — lihat OPEN QUESTION 15; kunci yang sama dipakai ChildProfileCard.
+ */
+import { CHILD_LIMITS } from "../lib/children/profiles.ts";
+
+interface Props {
+  mode: "create" | "edit";
+  child?: {
+    childId: string;
+    nickname: string;
+    age: number;
+    avatarKey: string | null;
+    language: string;
+    learningGoals: string[];
+  };
+}
+
+const { mode, child } = Astro.props;
+if (mode === "edit" && !child) {
+  throw new Error("ChildProfileForm mode=\"edit\" membutuhkan props child");
+}
+const current = mode === "edit" ? child : undefined;
+const endpoint = current ? `/api/children/${current.childId}` : "/api/children";
+
+const ages = [3, 4, 5, 6, 7];
+const selectedAvatar = current?.avatarKey ?? "";
+const goals = current?.learningGoals ?? [];
+const goalRows = goals.length > 0 ? goals : [""];
+
+/** Motif avatar non-hidup (DESIGN.md §Do's: bintang, buku, bulan, lentera). */
+const avatarOptions = [
+  { key: "star", label: "Bintang", path: "M12 2l2.9 6.26L21.6 9.27l-5 4.87 1.18 6.88L12 17.77 6.22 21.02 7.4 14.14l-5-4.87 6.7-1.01z" },
+  { key: "moon", label: "Bulan", path: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" },
+  { key: "book", label: "Buku", path: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" },
+  { key: "lantern", label: "Lentera", path: "M12 2v6M12 16v6M4 22h16M6 8h12M6 14h12" },
+];
+---
+
+<form
+  class="profile-form"
+  data-child-profile
+  data-endpoint={endpoint}
+  data-mode={mode}
+  method="post"
+  action={endpoint}
+>
+  <div class="field">
+    <label for="nickname">Nama panggilan</label>
+    <input
+      id="nickname"
+      name="nickname"
+      type="text"
+      required
+      maxlength={String(CHILD_LIMITS.nicknameMax)}
+      autocomplete="nickname"
+      placeholder="Mis. Nusa"
+      value={current?.nickname ?? ""}
+    />
+    <p class="hint">Pakai nama panggilan saja. Kami tidak meminta nama lengkap.</p>
+  </div>
+
+  <div class="field">
+    <label for="age">Usia</label>
+    <select id="age" name="age" required>
+      <option value="" disabled selected={!current}>Pilih usia</option>
+      {ages.map((a) => (
+        <option value={a} selected={current?.age === a}>{a} tahun</option>
+      ))}
+    </select>
+    <p class="hint">Rentang {CHILD_LIMITS.ageMin}–{CHILD_LIMITS.ageMax} tahun, sesuai usia anak.</p>
+  </div>
+
+  <fieldset class="field">
+    <legend>Pilihan avatar <span class="optional">(opsional)</span></legend>
+    <div class="avatar-options">
+      {avatarOptions.map((opt) => (
+        <label class="avatar-option">
+          <input
+            type="radio"
+            name="avatarKey"
+            value={opt.key}
+            checked={selectedAvatar === opt.key}
+          />
+          <span class="avatar-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d={opt.path} />
+            </svg>
+          </span>
+          <span class="avatar-label">{opt.label}</span>
+        </label>
+      ))}
+      <label class="avatar-option">
+        <input type="radio" name="avatarKey" value="" checked={current !== undefined && selectedAvatar === ""} />
+        <span class="avatar-mark avatar-none" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M6 18L18 6" />
+          </svg>
+        </span>
+        <span class="avatar-label">Tanpa avatar</span>
+      </label>
+    </div>
+    <p class="hint">Motif benda mati, mengikuti daftar ilustrasi DESIGN.md.</p>
+  </fieldset>
+
+  <div class="field">
+    <label for="language">Bahasa</label>
+    <select id="language" name="language">
+      <option value="id" selected={!current || current.language === "id"}>Bahasa Indonesia</option>
+    </select>
+    <p class="hint">Saat ini baru tersedia Bahasa Indonesia.</p>
+  </div>
+
+  <fieldset class="field">
+    <legend>Tujuan belajar <span class="optional">(opsional)</span></legend>
+    <div class="goals" data-goals>
+      {goalRows.map((goal, index) => (
+        <input
+          id={`learningGoal-${index + 1}`}
+          name="learningGoal"
+          type="text"
+          maxlength={String(CHILD_LIMITS.goalMax)}
+          placeholder="Mis. Mengenal angka"
+          aria-label={`Tujuan belajar ke-${index + 1}`}
+          value={goal}
+        />
+      ))}
+    </div>
+    <button class="btn-tertiary" type="button" data-add-goal hidden>
+      + Tambah tujuan
+    </button>
+    <p class="hint">
+      Maksimal {CHILD_LIMITS.goalsMax} tujuan, masing-masing maksimal {CHILD_LIMITS.goalMax} karakter.
+    </p>
+  </fieldset>
+
+  <p class="status" id="profile-status" role="status" aria-live="polite"></p>
+
+  <button class="btn-primary" type="submit">
+    {mode === "edit" ? "Simpan Perubahan" : "Simpan Profil"}
+  </button>
+</form>
+
+<script>
+  // Kirim JSON ke endpoint profil anak; status sibok/galat/sukses ditulis
+  // sebagai teks pada live region (status tidak disampaikan lewat warna saja).
+  const MAX_GOALS = 6;
+  const form = document.querySelector<HTMLFormElement>("form[data-child-profile]");
+  const status = document.getElementById("profile-status");
+  const submit = form?.querySelector<HTMLButtonElement>("button[type=submit]");
+  const goalsBox = form?.querySelector<HTMLElement>("[data-goals]");
+  const addGoal = form?.querySelector<HTMLButtonElement>("[data-add-goal]");
+
+  function setStatus(message: string, tone: "busy" | "ok" | "error") {
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.tone = tone;
+  }
+
+  function refreshGoalButton() {
+    if (!addGoal || !goalsBox) return;
+    addGoal.hidden = goalsBox.querySelectorAll("input").length >= MAX_GOALS;
+  }
+
+  addGoal?.addEventListener("click", () => {
+    if (!goalsBox) return;
+    const rows = goalsBox.querySelectorAll("input");
+    const last = rows[rows.length - 1];
+    if (!last || rows.length >= MAX_GOALS) return;
+    const clone = last.cloneNode(true) as HTMLInputElement;
+    clone.value = "";
+    clone.id = `learningGoal-${rows.length + 1}`;
+    clone.setAttribute("aria-label", `Tujuan belajar ke-${rows.length + 1}`);
+    goalsBox.append(clone);
+    clone.focus();
+    refreshGoalButton();
+  });
+  refreshGoalButton();
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!form || !submit || submit.disabled) return;
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const data = new FormData(form);
+    const avatar = data.get("avatarKey");
+    const payload = {
+      nickname: String(data.get("nickname") ?? "").trim(),
+      age: Number(data.get("age")),
+      avatarKey: typeof avatar === "string" && avatar !== "" ? avatar : null,
+      language: String(data.get("language") ?? "id"),
+      learningGoals: data
+        .getAll("learningGoal")
+        .map((v) => String(v).trim())
+        .filter((v) => v.length > 0),
+    };
+
+    const isEdit = form.dataset.mode === "edit";
+    const endpoint = form.dataset.endpoint ?? "/api/children";
+
+    submit.disabled = true;
+    const idleLabel = submit.textContent;
+    submit.textContent = "Menyimpan…";
+    setStatus("", "busy");
+
+    try {
+      const res = await fetch(endpoint, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+        credentials: "same-origin",
+      });
+      const body: unknown = await res.json().catch(() => null);
+      const message =
+        typeof body === "object" && body !== null &&
+        typeof (body as { message?: unknown }).message === "string"
+          ? (body as { message: string }).message
+          : "Coba lagi sebentar lagi.";
+
+      if (res.ok) {
+        if (isEdit) {
+          setStatus("Profil tersimpan.", "ok");
+        } else {
+          setStatus("Profil tersimpan. Membuka Area Orang Tua…", "ok");
+          window.location.assign("/parent");
+        }
+        return;
+      }
+
+      setStatus(message, "error");
+    } catch {
+      setStatus("Jaringan bermasalah. Periksa koneksi lalu coba lagi.", "error");
+    } finally {
+      submit.disabled = false;
+      if (idleLabel !== null) submit.textContent = idleLabel;
+    }
+  });
+</script>
+
+<style>
+  .profile-form {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    box-shadow: var(--shadow-soft);
+    padding: var(--sp-6);
+  }
+
+  .field {
+    margin: 0 0 var(--sp-5);
+    border: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  label,
+  legend {
+    display: block;
+    font-weight: 600;
+    font-size: var(--fs-base);
+    margin-bottom: var(--sp-2);
+    padding: 0;
+  }
+
+  .optional {
+    font-weight: 400;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+
+  input[type="text"],
+  select {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 var(--sp-3);
+    font-family: var(--font-body);
+    font-size: var(--fs-base);
+    color: var(--c-ink);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+  }
+
+  input::placeholder {
+    color: var(--c-muted-ink);
+  }
+
+  input[type="text"]:focus-visible,
+  select:focus-visible,
+  input[type="radio"]:focus-visible {
+    outline: 2px solid var(--c-deep-green);
+    outline-offset: 2px;
+  }
+
+  .hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+
+  /* Avatar: chip pilihan dengan radio native tetap terlihat — pilihan tidak
+     hanya ditandai lewat warna. */
+  .avatar-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: var(--sp-3);
+  }
+
+  .avatar-option {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--touch-min);
+    padding: var(--sp-2) var(--sp-3);
+    margin: 0;
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    cursor: pointer;
+  }
+
+  .avatar-option:has(input:checked) {
+    border-color: var(--c-deep-green);
+    box-shadow: 0 0 0 2px var(--c-soft-green);
+    background: var(--c-soft-green);
+  }
+
+  .avatar-option input {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--c-deep-green);
+    margin: 0;
+  }
+
+  .avatar-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: var(--c-deep-green);
+    flex-shrink: 0;
+  }
+
+  .avatar-mark svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .avatar-none {
+    color: var(--c-muted-ink);
+  }
+
+  .avatar-label {
+    min-width: 0;
+  }
+
+  .goals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+
+  .goals input:invalid:not(:placeholder-shown) {
+    border-color: var(--c-warning);
+  }
+
+  /* Ruang status selalu dipesan supaya layout tidak melompat saat pesan muncul. */
+  .status {
+    min-height: 1.5em;
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+  }
+
+  /* Pola error-note / badge-success DESIGN.md: permukaan bertint + teks gelap
+     (kontras ≥4,5:1) — bukan teks merah/hijau di atas putih. */
+  .status[data-tone="error"] {
+    background: var(--c-soft-peach);
+    color: var(--c-ink);
+    border-radius: var(--r-control);
+    padding: var(--sp-2) var(--sp-3);
+    font-weight: 600;
+  }
+
+  .status[data-tone="ok"] {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    border-radius: var(--r-control);
+    padding: var(--sp-2) var(--sp-3);
+    font-weight: 600;
+  }
+
+  .status[data-tone="busy"] {
+    color: var(--c-muted-ink);
+  }
+
+  .btn-primary {
+    width: 100%;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--r-card);
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    font-family: var(--font-heading);
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+  }
+
+  .btn-primary:hover {
+    background: var(--c-ink);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.7;
+    cursor: default;
+  }
+
+  .btn-tertiary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-4);
+    border: none;
+    border-radius: var(--r-control);
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    font-family: var(--font-body);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out);
+  }
+
+  .btn-tertiary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-tertiary[hidden] {
+    display: none;
+  }
+</style>

@@ -1,0 +1,85 @@
+---
+/**
+ * Ubah profil anak (VRD 4.9).
+ *
+ * Kepemilikan dicek di server lewat gerbang 3.7 (`getChildForParent`):
+ * id yang bukan milik sesi berjalan, id rusak, id tidak ada, dan profil
+ * terarsip semuanya dialihkan ke `/parent` dengan hasil yang sama
+ * (anti-enumerasi, VRD 3.11) — halaman tidak pernah menampilkan data orang lain.
+ */
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import ChildProfileForm from "../../../../components/ChildProfileForm.astro";
+import { getChildForParent } from "../../../../lib/auth/guard.ts";
+import { getDb } from "../../../../lib/db/index.ts";
+import { parentIdOf } from "../../../../lib/children/api.ts";
+
+const parentIdResult = parentIdOf(Astro);
+if (parentIdResult instanceof Response) {
+  return Astro.redirect("/login");
+}
+
+const childId = Astro.params.id ?? "";
+const db = await getDb();
+const child = await getChildForParent(db, childId, parentIdResult);
+
+// Profil terarsip tidak bisa diubah (VRD 4.10) — statusnya terlihat di kartu.
+if (!child || child.archivedAt !== null) {
+  return Astro.redirect("/parent");
+}
+---
+
+<BaseLayout title="Ubah Profil Anak" mode="parent">
+  <header class="page-header">
+    <h1>Ubah Profil Anak</h1>
+    <p class="subtitle">Perbarui nama panggilan, usia, avatar, bahasa, atau tujuan belajar.</p>
+  </header>
+
+  <ChildProfileForm
+    mode="edit"
+    child={{
+      childId: child.childId,
+      nickname: child.nickname,
+      age: child.age,
+      avatarKey: child.avatarKey,
+      language: child.language,
+      learningGoals: child.learningGoals,
+    }}
+  />
+
+  <p class="back-link">
+    <a href="/parent">Kembali ke Area Orang Tua</a>
+  </p>
+</BaseLayout>
+
+<style>
+  .page-header {
+    margin-bottom: var(--sp-6);
+    text-align: center;
+  }
+  .page-header h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+  }
+  .subtitle {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-lg);
+    max-width: 46ch;
+    margin: 0 auto;
+  }
+  .back-link {
+    margin-top: var(--sp-5);
+    text-align: center;
+    font-size: var(--fs-sm);
+  }
+  .back-link a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-min);
+  }
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+</style>

@@ -61,7 +61,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
 | 3 | Authentication and Parent Ownership | ✅ DONE | 2026-10-05 (commit `4617165`) — 3.1–3.11 lengkap: endpoint + UI login/daftar + middleware rute + gerbang kepemilikan + **3.9 rate limiting** |
-|| 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11 lengkap: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, parent gate arsip, settings grid) |
+|| 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, settings grid); **2026-10-06 UI buat/ubah/arsip profil** (`/parent/profil/baru`, `/parent/profil/:id/edit`) menutup tautan mati di dashboard |
 || 5 | Learning Areas and Skills | ✅ DONE | 2026-10-05 (commit `...`) — 5.1–5.6 lengkap: 6 learning area + 53 skill (seed migrasi 0003), query API baca + filter usia, 10 test |
 || 6 | Activity Engine | ✅ DONE | 2026-10-05 (commit `...`) — 6.1 domain contract + 6.2–6.8 renderers + 6.13 type-driven renderer + 6.9 server validation + 6.15 test fixtures + **48 test baru** (type guards, fixtures, server validation, renderer, invalid payload safety, retry/completion/feedback hooks); semua 130 test hijau |
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; renderer pakai DESIGN.md tokens, anti-slop checklist layar dilewati (tidak ada layar baru yang butuh lint DESAIN.md karena tidak ada halaman baru terpisah) |
@@ -411,6 +411,23 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     (VRD 8.8). Konsekuensinya asesmen belum bisa diselesaikan sampai Phase 13
     menanam konten — **bukan bug**, sengaja tidak ditambal dengan konten uji
     yang dipublikasikan. Setelah Phase 13 kolam tiap usia melebihi 5.
+18. **Tautan pengaturan di dashboard masih 404**: `/parent/pengaturan/audio`
+    dan `/parent/pengaturan/privasi` ditautkan dari `parent.astro` tetapi
+    halamannya belum ada (Phase 10/14). Sengaja tidak dibuat di run ini
+    karena preferensi audio & retensi/hapus akun belum ada keputusan
+    produknya (lihat OQ 5, OQ 14). Sama untuk "Durasi Sesi" yang sudah
+    diberi label "Segera hadir".
+19. **Tautan area di child home masih 404**: `learn.astro` menautkan
+    `/learn/area/:code?child=` (VRD 7.5) tetapi halaman detail area belum
+    dibuat — tercatat juga sebagai open question Keputusan Phase 7 no. 9.
+    Kandidat langkah aman berikutnya (lihat bagian "Untuk run berikutnya").
+20. **Jalur tulis butuh JavaScript**: formulir profil anak mengirim JSON ke
+    `/api/children`, dan aksi arsip memakai `fetch DELETE` — tanpa JavaScript
+    browser mengirim POST form-urlencoded sehingga server menjawab 400/405
+    yang aman (tanpa data tersimpan). Ini mengikuti pola `ParentAuthForm`
+    yang sudah ada; bila kelak butuh dukungan non-JS penuh, tambahkan
+    parsing `application/x-www-form-urlencoded` + method override di endpoint
+    (keputusan keamanan, bukan perbaikan diam-diam).
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -486,3 +503,82 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 8. **Verifikasi**: `npm test` 130 passed, `tsc --noEmit` clean, `npm run build` hijau.
 
 9. **Open question**: Halaman detail area (`/learn/area/:code?child=`) belum dibuat — perlu untuk 7.5 "Build area selection" penuh. Client-side activity renderer (`/activity/[id].astro`) belum ada — Phase 7.6/7.7 butuh halaman aktivitas interaktif utuh. Server-side data sudah siap lewat session start.
+
+## Keputusan Phase 4 (lanjutan) — UI buat/ubah/arsip profil anak (2026-10-06)
+
+Konteks: endpoint + validasi Phase 4 sudah DONE, tetapi tautan
+`/parent/profil/baru` dan `/parent/profil/:id/edit` di dashboard **404** —
+orang tua belum bisa membuat profil anak lewat UI, sehingga seluruh alur anak
+tidak terjangkau tanpa API. PRD §8 menyebut "Parent creates child profile"
+sebagai langkah 2–7 onboarding, jadi ini penyempurnaan Phase 4, bukan perilaku
+baru.
+
+1. **Satu komponen, dua rute**: `src/components/ChildProfileForm.astro` dengan
+   `mode="create" | "edit"` dipakai `/parent/profil/baru` dan
+   `/parent/profil/[id]/edit` — markup, gaya, dan skrip hanya satu salinan
+   (pola `ParentAuthForm`).
+2. **Isian = PRD §8 persis**: nickname (wajib, maks 40), usia select 3–7
+   (wajib), avatar radio (opsional), bahasa, learning goals (maks 6 butir à
+   40). Test `test/child-profile-ui.test.ts` **menolak** `type="date"`,
+   `type="file"`, dan nama isian PII (nama lengkap/alamat/telepon/sekolah/
+   foto) supaya daftar "Do not request" PRD §8 tidak dilanggar diam-diam.
+3. **Katalog avatar** memakai kunci yang sama dengan kartu profil
+   (`star`, `moon`, `book`, `lantern` — mengikuti daftar ilustrasi DESIGN.md);
+   test membandingkan kedua katalog agar tidak menyimpang. OQ 15 tetap
+   terbuka untuk validasi katalog di server.
+4. **Kirim JSON ke endpoint yang sudah ada**: POST `/api/children` (buat) dan
+   PATCH `/api/children/:id` (ubah) — seluruh validasi, gerbang kepemilikan
+   3.7, dan cek Origin tetap di server; tidak ada jalur tulis baru.
+   `age` dikirim sebagai number, `avatarKey: null` bila "Tanpa avatar",
+   `learningGoals` hanya baris terisi.
+5. **Umpan balik**: live region `role="status"` `aria-live="polite"`, sibuk =
+   tombol nonaktif + "Menyimpan…", galat = pesan server di permukaan
+   `error-note` (soft-peach + ink), sukses = `badge-success` (soft-green +
+   deep-green). Mode buat → redirect `/parent`; mode edit → tetap di halaman
+   dengan "Profil tersimpan." Status tidak pernah disampaikan lewat warna saja.
+6. **Gerbang kepemilikan di halaman ubah**: `getChildForParent()` di frontmatter;
+   id asing, id rusak, id tidak ada, dan profil terarsip → redirect `/parent`
+   (hasil identik, anti-enumerasi 3.11); tanpa sesi → redirect `/login`.
+7. **Arsip diperbaiki (4.10/4.11)**: kartu profil sebelumnya mengirim
+   `POST` + `_method=DELETE` yang tidak pernah ditangani siapa pun (405).
+   Kini `form[data-archive]` ditangkap skrip: **konfirmasi orang tua**
+   (`window.confirm`) → `fetch DELETE` same-origin → reload; galat tampil di
+   live region kartu. Sengaja tidak menambah method override di endpoint
+   (lihat OQ 20).
+8. **Anti-slop (DESIGN-SYSTEM §12)** — layar baru: `/parent/profil/baru` dan
+   `/parent/profil/[id]/edit`. Diperiksa: hierarki (header → satu kartu form →
+   satu tombol utama; "Tambah tujuan" tersier); dekorasi ~0 (tanpa gradien,
+   blob, pill berlebih, tanpa `@keyframes` baru); sentuh target chip avatar
+   44px, input 48px, tombol utama 52px; status tidak lewat warna saja; audio
+   tidak ada; reduced motion lewat token `--dur-tap`/`--dur-*` (nol saat
+   `prefers-reduced-motion`); **tanpa nilai hex hardcoded** di komponen (SVG
+   memakai `currentColor` + `var(--c-*)`); QA E2E eksploratif di **390px
+   (scrollWidth = 390, tanpa overflow)** dan **768px (753 ≤ 768)**, urutan Tab
+   logis (skip link → nickname → usia → avatar → tujuan), empty state dashboard
+   terlihat setelah profil diarsip. Lint: `npx -y @google/design.md lint
+   DESIGN.md` → **0 error, 0 warning** (1 info: ringkasan token).
+9. **Verifikasi**: `npm test` **151 passed** (9 baru di
+   `test/child-profile-ui.test.ts`), `npx tsc --noEmit` bersih, `npm run build`
+   hijau, `npm run smoke:auth` → **SMOKE_OK** (4 cek baru: form tambah 200,
+   form ubah 200 + nilai awal, id asing → alihkan ke `/parent`, tautan dashboard;
+   plus `/parent/profil/baru` tanpa sesi → 303 `/login`).
+10. **Bukti lewat peramban (QA E2E eksploratif, server preview :4322)**:
+    daftar akun → dashboard → tambah profil "Laras" (avatar bulan, 2 tujuan,
+    tombol "Tambah tujuan" berfungsi) → kartu muncul → halaman ubah terisi
+    penuh → ubah jadi "Laras Ayu" → "Profil tersimpan." → nickname duplikat
+    di form tambah menampilkan pesan 409 berwarna soft-peach → arsip pindah
+    ke "Profil Diarsipkan" dengan catatan retensi. Server preview dimatikan
+    setelah QA; `astro preview` lama dari run sebelumnya (port 4321, menyajikan
+    build basi → 500) ikut dibersihkan.
+
+## Untuk run berikutnya
+
+- **Langkah aman berikutnya (VRD 7.5, menutup OQ 19)**: halaman detail area
+  `/learn/area/:code?child=` — daftar aktivitas PUBLISHED per area + usia,
+  mengganti tautan 404 di child home, menuju `POST /api/session/start`.
+- **Phase 8 (UI onboarding baseline) masih menunggu OQ 16** (titik masuk
+  baseline: onboarding pasca-profil vs opsional di `/learn`) **dan** halaman
+  aktivitas interaktif (7.6/7.7 + pemetaan `activity` + `activity_option` →
+  `ActivityData`) yang belum ada — keduanya prasyarat sebelum UI baseline bisa
+  dirender. Jangan mulai UI baseline sebelum salah satunya diputuskan.
+- Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).

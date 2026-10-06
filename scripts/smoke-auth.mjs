@@ -139,6 +139,11 @@ try {
   check("/api/children tanpa sesi → 401 JSON", anonChildren.status === 401);
   const homeAnon = await getRaw("/");
   check("/ tetap publik", homeAnon.status === 200);
+  const anonProfileForm = await getRaw("/parent/profil/baru");
+  check(
+    "/parent/profil/baru tanpa sesi → 303 ke /login",
+    anonProfileForm.status === 303 && String(anonProfileForm.location).endsWith("/login"),
+  );
 
   const reg = await post("/api/auth/register", {
     email: "Smoke@Contoh.id",
@@ -177,6 +182,35 @@ try {
   check(
     "daftar anak aktif berisi 1 profil",
     childList.status === 200 && childList.body?.children?.length === 1,
+  );
+
+  // --- UI profil anak (VRD 4.1/4.9) lewat halaman sungguhan ---
+  const createPage = await getRaw("/parent/profil/baru");
+  console.log("halaman tambah:", createPage.status);
+  check(
+    "halaman tambah profil 200 + formulir isian",
+    createPage.status === 200 &&
+      createPage.body.includes("Tambah Profil Anak") &&
+      createPage.body.includes("data-child-profile") &&
+      createPage.body.includes('name="nickname"') &&
+      createPage.body.includes('name="age"'),
+  );
+  const editPage = await getRaw(`/parent/profil/${childId}/edit`);
+  console.log("halaman ubah:", editPage.status);
+  check(
+    "halaman ubah profil 200 + nilai awal terisi",
+    editPage.status === 200 && editPage.body.includes('value="Nusa"'),
+  );
+  const foreignEdit = await getRaw("/parent/profil/00000000-0000-4000-8000-000000000000/edit");
+  console.log("halaman ubah id asing:", foreignEdit.status, foreignEdit.location);
+  check(
+    "ubah profil id tak dikenal → dialihkan ke /parent",
+    [302, 303].includes(foreignEdit.status) && String(foreignEdit.location).endsWith("/parent"),
+  );
+  const dashPage = await getRaw("/parent");
+  check(
+    "dashboard menautkan /parent/profil/baru",
+    dashPage.status === 200 && dashPage.body.includes("/parent/profil/baru"),
   );
 
   const childDup = await post("/api/children", { nickname: " nusa ", age: 6 });

@@ -60,10 +60,10 @@ const goalsPreview = child.learningGoals.length > 0
       <>
         <a class="btn-secondary" href={onSelect} data-action="select">Pilih</a>
         <a class="btn-tertiary" href={onEdit} data-action="edit">Ubah</a>
-        <form action={onArchive} method="POST" class="archive-form" data-parent-gate>
-          <input type="hidden" name="_method" value="DELETE" />
+        <form action={onArchive} method="post" class="archive-form" data-archive data-child-name={child.nickname}>
           <button class="btn-ghost-danger" type="submit" data-action="archive">Arsipkan</button>
         </form>
+        <p class="archive-status" role="status" aria-live="polite" hidden></p>
       </>
     )}
     {child.archivedAt && (
@@ -71,6 +71,74 @@ const goalsPreview = child.learningGoals.length > 0
     )}
   </div>
 </article>
+
+<script>
+  /**
+   * Arsipkan profil (VRD 4.10) lewat DELETE `/api/children/:id`.
+   *
+   * HTML form tidak bisa mengirim DELETE, jadi submit ditangkap di sini:
+   * konfirmasi orang tua dulu (gerbang 4.11 sebelum aksi sensitif), lalu
+   * fetch DELETE dengan kredensial same-origin. Galat ditampilkan sebagai
+   * teks pada live region kartu — status tidak disampaikan lewat warna saja.
+   */
+  async function archiveSubmit(form: HTMLFormElement) {
+    const status = form.parentElement?.querySelector<HTMLElement>(".archive-status");
+    const button = form.querySelector<HTMLButtonElement>("button[type=submit]");
+    const name = form.dataset.childName ?? "profil ini";
+    const endpoint = form.getAttribute("action") ?? "";
+
+    if (!window.confirm(`Arsipkan ${name}? Riwayat belajar tetap tersimpan.`)) return;
+
+    if (status) {
+      status.hidden = false;
+      status.textContent = "Mengarsipkan…";
+      status.dataset.tone = "busy";
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Mengarsipkan…";
+    }
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+      });
+      if (res.ok) {
+        window.location.reload();
+        return;
+      }
+      const body: unknown = await res.json().catch(() => null);
+      const message =
+        typeof body === "object" && body !== null &&
+        typeof (body as { message?: unknown }).message === "string"
+          ? (body as { message: string }).message
+          : "Coba lagi sebentar lagi.";
+      if (status) {
+        status.textContent = message;
+        status.dataset.tone = "error";
+      }
+    } catch {
+      if (status) {
+        status.textContent = "Jaringan bermasalah. Periksa koneksi lalu coba lagi.";
+        status.dataset.tone = "error";
+      }
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Arsipkan";
+      }
+    }
+  }
+
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.matches("form[data-archive]")) return;
+    event.preventDefault();
+    void archiveSubmit(form);
+  });
+</script>
 
 <style>
   .profile-card {
@@ -229,6 +297,25 @@ const goalsPreview = child.learningGoals.length > 0
 
   .archive-form {
     margin: 0;
+  }
+
+  .archive-status {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--c-ink);
+  }
+  .archive-status[data-tone="error"] {
+    background: var(--c-soft-peach);
+    border-radius: var(--r-control);
+    padding: var(--sp-2) var(--sp-3);
+  }
+  .archive-status[data-tone="busy"] {
+    color: var(--c-muted-ink);
+  }
+  .archive-status[hidden] {
+    display: none;
   }
 
   @media (max-width: 480px) {

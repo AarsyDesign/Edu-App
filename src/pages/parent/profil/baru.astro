@@ -1,0 +1,55 @@
+---
+/**
+ * Tambah profil anak (VRD 4.1–4.6, PRD §8 langkah 2–7 onboarding).
+ * Berada di bawah prefiks terlindungi `/parent` → sesi orang tua dicek
+ * middleware sebelum halaman dirender (VRD 3.5).
+ */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import ChildProfileForm from "../../../components/ChildProfileForm.astro";
+---
+
+<BaseLayout title="Tambah Profil Anak" mode="parent">
+  <header class="page-header">
+    <h1>Tambah Profil Anak</h1>
+    <p class="subtitle">Beberapa isian singkat, lalu anak bisa mulai belajar.</p>
+  </header>
+
+  <ChildProfileForm mode="create" />
+
+  <p class="back-link">
+    <a href="/parent">Kembali ke Area Orang Tua</a>
+  </p>
+</BaseLayout>
+
+<style>
+  .page-header {
+    margin-bottom: var(--sp-6);
+    text-align: center;
+  }
+  .page-header h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+  }
+  .subtitle {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-lg);
+    max-width: 46ch;
+    margin: 0 auto;
+  }
+  .back-link {
+    margin-top: var(--sp-5);
+    text-align: center;
+    font-size: var(--fs-sm);
+  }
+  .back-link a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-min);
+  }
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+</style>
