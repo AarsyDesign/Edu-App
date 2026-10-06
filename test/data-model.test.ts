@@ -34,6 +34,8 @@ const EXPECTED_TABLES = [
   "content_review",
   "content_source",
   "app_setting",
+  "reviewer_account",    // Phase 11: akun reviewer/konten (migrasi 0004)
+  "reviewer_session",    // Phase 11: sesi reviewer (migrasi 0004)
 ];
 
 let db: PGlite;
@@ -103,6 +105,7 @@ test("2.14 migrasi dari database bersih: seluruh tabel + tercatat di schema_migr
     "activity_option",
     "content_review",
     "content_source",
+    "reviewer_session",  // Phase 11: sesi reviewer, append-only
   ]);
   // 2.1 primary key + 2.3 timestamp di tiap entitas
   for (const t of EXPECTED_TABLES) {

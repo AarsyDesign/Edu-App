@@ -1,0 +1,221 @@
+---
+/**
+ * Form login reviewer (VRD 11.1).
+ * Mirip ParentAuthForm tapi untuk reviewer_account.
+ * POST ke /api/reviewer/auth/login (endpoint susul).
+ */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const title = "Masuk Reviewer";
+---
+
+<BaseLayout title={title} mode="reviewer">
+  <main class="auth-page">
+    <header class="auth-header">
+      <h1>Masuk Reviewer</h1>
+      <p class="subtitle">Area manajemen konten</p>
+    </header>
+
+    <form class="auth-form" method="post" action="/api/reviewer/auth/login">
+      <input type="hidden" name="_origin" value={Astro.url.origin} />
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          autocomplete="email"
+          required
+          aria-describedby="email-hint"
+        />
+        <span id="email-hint" class="hint">Email akun reviewer</span>
+      </div>
+
+      <div class="field">
+        <label for="password">Kata Sandi</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          autocomplete="current-password"
+          required
+          aria-describedby="password-hint"
+        />
+        <span id="password-hint" class="hint">Minimal 8 karakter</span>
+      </div>
+
+      <div class="status" role="status" aria-live="polite" aria-atomic="true"></div>
+
+      <button type="submit" class="btn-primary" disabled>
+        <span class="btn-text">Masuk</span>
+        <span class="btn-loading" hidden>Memproses…</span>
+      </button>
+    </form>
+
+    <p class="auth-switch">
+      Belum punya akun? <a href="/reviewer/daftar">Daftar di sini</a>
+    </p>
+  </main>
+
+  <script>
+    // Client-side enhancement: submit JSON, fallback to form POST
+    document.querySelector(".auth-form")?.addEventListener("submit", async (e) => {
+      const form = e.currentTarget;
+      const btn = form.querySelector("button[type=submit]");
+      const status = form.querySelector(".status");
+      const btnText = btn?.querySelector(".btn-text");
+      const btnLoading = btn?.querySelector(".btn-loading");
+
+      // Prevent double submit
+      if (btn?.disabled) return;
+      btn.disabled = true;
+      btnText?.setAttribute("hidden", "");
+      btnLoading?.removeAttribute("hidden");
+      status.textContent = "";
+      status.className = "status";
+
+      const formData = new FormData(form);
+      const body = Object.fromEntries(formData.entries());
+      delete body._origin;
+
+      try {
+        const res = await fetch("/api/reviewer/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.ok) {
+          status.textContent = "Masuk berhasil. Mengalihkan…";
+          status.className = "status success";
+          window.location.href = "/reviewer";
+        } else {
+          status.textContent = data.message ?? "Email atau kata sandi salah.";
+          status.className = "status error";
+          btn.disabled = false;
+          btnText?.removeAttribute("hidden");
+          btnLoading?.setAttribute("hidden", "");
+        }
+      } catch {
+        status.textContent = "Terjadi kesalahan jaringan. Coba lagi.";
+        status.className = "status error";
+        btn.disabled = false;
+        btnText?.removeAttribute("hidden");
+        btnLoading?.setAttribute("hidden", "");
+      }
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .auth-page {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: var(--sp-8) var(--sp-4);
+  }
+  .auth-header {
+    text-align: center;
+    margin-bottom: var(--sp-6);
+  }
+  .auth-header h1 {
+    font-size: var(--fs-2xl);
+    font-weight: 700;
+    color: var(--c-deep-green);
+    margin-bottom: var(--sp-2);
+  }
+  .subtitle {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-base);
+  }
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+  .field label {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--c-ink);
+  }
+  .field input {
+    padding: var(--sp-3) var(--sp-4);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    font-size: var(--fs-base);
+    font-family: inherit;
+    min-height: var(--touch-min);
+    background: var(--c-warm-white);
+    color: var(--c-ink);
+    transition: border-color var(--dur-tap) var(--ease-out), box-shadow var(--dur-tap) var(--ease-out);
+  }
+  .field input:focus {
+    outline: none;
+    border-color: var(--c-deep-green);
+    box-shadow: 0 0 0 3px var(--c-soft-green);
+  }
+  .hint {
+    font-size: var(--fs-xs);
+    color: var(--c-muted-ink);
+  }
+  .status {
+    min-height: 20px;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+  }
+  .status.success {
+    color: var(--c-success);
+  }
+  .status.error {
+    color: var(--c-error);
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-6);
+    border-radius: var(--r-card);
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--c-ink);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .auth-switch {
+    text-align: center;
+    margin-top: var(--sp-5);
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  .auth-switch a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .auth-switch a:hover {
+    text-decoration: underline;
+  }
+  .reduce-motion .btn-primary {
+    transition: none;
+  }
+</style>

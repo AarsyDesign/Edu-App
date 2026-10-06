@@ -47,6 +47,8 @@ export const RATE_LIMIT_DEFAULTS = {
   windowMin: 15,
   loginMax: 15,
   registerMax: 15,
+  reviewerLoginMax: 15,
+  reviewerRegisterMax: 15,
 } as const;
 
 export function rateLimitWindowMs(): number {
@@ -63,6 +65,20 @@ export function loginRateRule(): RateLimitRule {
 export function registerRateRule(): RateLimitRule {
   return {
     max: envInt("RATE_LIMIT_REGISTER_MAX", RATE_LIMIT_DEFAULTS.registerMax),
+    windowMs: rateLimitWindowMs(),
+  };
+}
+
+export function reviewerLoginRateRule(): RateLimitRule {
+  return {
+    max: envInt("RATE_LIMIT_REVIEWER_LOGIN_MAX", RATE_LIMIT_DEFAULTS.reviewerLoginMax),
+    windowMs: rateLimitWindowMs(),
+  };
+}
+
+export function reviewerRegisterRateRule(): RateLimitRule {
+  return {
+    max: envInt("RATE_LIMIT_REVIEWER_REGISTER_MAX", RATE_LIMIT_DEFAULTS.reviewerRegisterMax),
     windowMs: rateLimitWindowMs(),
   };
 }
@@ -151,4 +167,47 @@ export function rateLimitResponse(retryAfterSec: number): Response {
 /** Hanya untuk test: kosongkan seluruh penghitung. */
 export function resetRateLimits(): void {
   windows.clear();
+}
+
+/** Kunci terpisah untuk reviewer (endpoint berbeda = kuota berbeda). */
+export const RATE_LIMIT_KEYS = {
+  LOGIN: "auth:login",
+  REGISTER: "auth:register",
+  REVIEWER_LOGIN: "reviewer:login",
+  REVIEWER_REGISTER: "reviewer:register",
+} as const;
+
+/** Cek rate limit untuk konteks request (Astro API context). */
+export function checkRateLimit(
+  request: Request,
+  keyPrefix: string,
+): { allowed: boolean; retryAfter: number; remaining: number } {
+  // Astro request context has `clientAddress` via the adapter
+  const context = (request as unknown as { clientAddress?: string });
+  const key = `${keyPrefix}:${clientKey(context)}`;
+  let rule: RateLimitRule;
+
+  switch (keyPrefix) {
+    case RATE_LIMIT_KEYS.LOGIN:
+      rule = loginRateRule();
+      break;
+    case RATE_LIMIT_KEYS.REGISTER:
+      rule = registerRateRule();
+      break;
+    case RATE_LIMIT_KEYS.REVIEWER_LOGIN:
+      rule = reviewerLoginRateRule();
+      break;
+    case RATE_LIMIT_KEYS.REVIEWER_REGISTER:
+      rule = reviewerRegisterRateRule();
+      break;
+    default:
+      rule = { max: 100, windowMs: 60_000 };
+  }
+
+  const verdict = consumeRateLimit(key, rule);
+  return {
+    allowed: verdict.allowed,
+    retryAfter: verdict.retryAfterSec,
+    remaining: verdict.remaining,
+  };
 }
