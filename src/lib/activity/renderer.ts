@@ -90,18 +90,39 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#039;');
 }
 
-function generateOptionButton(option: { id: string; label: string }, isSelected: boolean, index: number): string {
+/**
+ * Tombol pilihan. `labelHtml` dipakai bila label sudah berisi markup siap
+ * pakai (mis. swatch warna) — HTML semacam itu wajib disusun di sini, bukan
+ * dari teks konten mentah, supaya tidak ada yang lolos tanpa di-escape.
+ */
+function generateOptionButton(
+  option: { id: string; label: string },
+  isSelected: boolean,
+  index: number,
+  labelHtml = false,
+): string {
+  const label = labelHtml ? option.label : escapeHtml(option.label);
   return `
 <button
   class="option-btn ${isSelected ? "selected" : ""}"
   type="button"
-  data-option-id="${option.id}"
+  data-option-id="${escapeHtml(option.id)}"
   data-option-index="${index}"
   aria-pressed="${isSelected}"
 >
-  <span class="option-label">${escapeHtml(option.label)}</span>
+  <span class="option-label">${label}</span>
 </button>
 `;
+}
+
+/**
+ * Nilai warna CSS dari konten hanya diterima bila berupa heksa valid —
+ * payload konten tidak boleh menuliskan CSS bebas ke halaman.
+ */
+function safeHexColor(value: unknown): string | null {
+  return typeof value === "string" && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value)
+    ? value
+    : null;
 }
 
 // ============================================================
@@ -210,7 +231,18 @@ renderers.SEQUENCE = renderSequence;
 function renderIdentifyColor(input: ActivityRenderInput): string {
   const data = input.data as IdentifyColorData;
   const optionsHtml = data.options
-    .map((opt, idx) => generateOptionButton({ id: opt.id, label: `<span class="color-swatch" style="background:${opt.colorValue}"></span>${escapeHtml(opt.colorName)}` }, false, idx))
+    .map((opt, idx) => {
+      const hex = safeHexColor(opt.colorValue);
+      const swatch = hex
+        ? `<span class="color-swatch" style="background:${hex}"></span>`
+        : `<span class="color-swatch"></span>`;
+      return generateOptionButton(
+        { id: opt.id, label: `${swatch}${escapeHtml(opt.colorName)}` },
+        false,
+        idx,
+        true,
+      );
+    })
     .join("");
 
   return `
@@ -220,7 +252,7 @@ function renderIdentifyColor(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initIdentifyColor } from "/activity/identify-color.js";
-initIdentifyColor("${input.activityId}", "${data.options.find(o => o.isCorrect)?.id ?? ""}");
+initIdentifyColor(${JSON.stringify(input.activityId)}, ${JSON.stringify(data.options.find(o => o.isCorrect)?.id ?? "")});
 </script>
 `;
 }
@@ -234,7 +266,14 @@ renderers.IDENTIFY_COLOR = renderIdentifyColor;
 function renderIdentifyShape(input: ActivityRenderInput): string {
   const data = input.data as IdentifyShapeData;
   const optionsHtml = data.options
-    .map((opt, idx) => generateOptionButton({ id: opt.id, label: `<span class="shape-icon shape-${opt.shapeKey}"></span>${escapeHtml(opt.shapeName)}` }, false, idx))
+    .map((opt, idx) =>
+      generateOptionButton(
+        { id: opt.id, label: `<span class="shape-icon shape-${escapeHtml(opt.shapeKey)}" aria-hidden="true"></span>${escapeHtml(opt.shapeName)}` },
+        false,
+        idx,
+        true,
+      ),
+    )
     .join("");
 
   return `
@@ -244,7 +283,7 @@ function renderIdentifyShape(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initIdentifyShape } from "/activity/identify-shape.js";
-initIdentifyShape("${input.activityId}", "${data.options.find(o => o.isCorrect)?.id ?? ""}");
+initIdentifyShape(${JSON.stringify(input.activityId)}, ${JSON.stringify(data.options.find(o => o.isCorrect)?.id ?? "")});
 </script>
 `;
 }

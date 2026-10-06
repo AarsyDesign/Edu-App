@@ -64,7 +64,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, settings grid); **2026-10-06 UI buat/ubah/arsip profil** (`/parent/profil/baru`, `/parent/profil/:id/edit`) menutup tautan mati di dashboard |
 || 5 | Learning Areas and Skills | ✅ DONE | 2026-10-05 (commit `...`) — 5.1–5.6 lengkap: 6 learning area + 53 skill (seed migrasi 0003), query API baca + filter usia, 10 test |
 || 6 | Activity Engine | ✅ DONE | 2026-10-05 (commit `...`) — 6.1 domain contract + 6.2–6.8 renderers + 6.13 type-driven renderer + 6.9 server validation + 6.15 test fixtures + **48 test baru** (type guards, fixtures, server validation, renderer, invalid payload safety, retry/completion/feedback hooks); semua 130 test hijau |
-|| 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; renderer pakai DESIGN.md tokens, anti-slop checklist layar dilewati (tidak ada layar baru yang butuh lint DESAIN.md karena tidak ada halaman baru terpisah) |
+|| 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; **2026-10-06 (run ini)**: 7.5 halaman detail area (menutup OQ 19) + 7.6/7.7 layar aktivitas interaktif, endpoint `/api/activity/attempt` & `/api/session/complete`, sesi per-tampilan, smoke E2E `SMOKE_LOOP_OK` (23 cek) |
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding baseline belum ada** (menyusul run berikutnya) |
 || 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
@@ -417,10 +417,11 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     karena preferensi audio & retensi/hapus akun belum ada keputusan
     produknya (lihat OQ 5, OQ 14). Sama untuk "Durasi Sesi" yang sudah
     diberi label "Segera hadir".
-19. **Tautan area di child home masih 404**: `learn.astro` menautkan
-    `/learn/area/:code?child=` (VRD 7.5) tetapi halaman detail area belum
-    dibuat — tercatat juga sebagai open question Keputusan Phase 7 no. 9.
-    Kandidat langkah aman berikutnya (lihat bagian "Untuk run berikutnya").
+19. **Tautan area di child home masih 404** — ~~selesai 2026-10-06~~:
+    halaman `/learn/area/:code?child=` sudah ada (menyaring aktivitas PUBLISHED
+    per area + usia anak, tautan kembali ke `/learn`, area tak dikenal diam-diam
+    kembali ke `/learn`), diverifikasi E2E oleh `scripts/smoke-loop.mjs`
+    (`SMOKE_LOOP_OK`).
 20. **Jalur tulis butuh JavaScript**: formulir profil anak mengirim JSON ke
     `/api/children`, dan aksi arsip memakai `fetch DELETE` — tanpa JavaScript
     browser mengirim POST form-urlencoded sehingga server menjawab 400/405
@@ -428,6 +429,24 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     yang sudah ada; bila kelak butuh dukungan non-JS penuh, tambahkan
     parsing `application/x-www-form-urlencoded` + method override di endpoint
     (keputusan keamanan, bukan perbaikan diam-diam).
+21. **Konvensi payload aktivitas belum terdokumentasi (Phase 7.6, 2026-10-06)**:
+    skema `activity.correct_answer` hanya menyebut "data (angka/teks/struktur)"
+    dan `activity_option` hanya "payload jsonb". Pemetaan yang kini dipakai
+    ditulis di `src/lib/activity/content.ts` (dokumen komentar, diuji test):
+    tipe berbasis pilihan → kebenaran dari `activity_option.is_correct`,
+    `COUNT_OBJECTS`/`TRUE_FALSE` → `activity.correct_answer`,
+    `MATCH` → `correct_answer` berbentuk `{answer: {<id kiri>: <id kanan>}}`,
+    urutan `SEQUENCE` harus 0-based. **CONTENT-SPEC §7.13 belum mengikat
+    format ini** — wajib didokumentasikan sebelum Phase 13 menanam konten,
+    kalau tidak konten bisa lolos validasi lalu tampil "belum siap".
+22. **Akses child home harus login orang tua (keputusan sementara)**: PRD tidak
+    menulis apakah `/learn` boleh dibuka tanpa sesi. Karena `learn.astro`
+    sudah mengunci kepemilikan via `locals.parentSession` (VRD 3.7) dan aturan
+    keras "data anak tidak boleh publik", `/learn` + `/learn/**` ditambahkan ke
+    `PROTECTED_PREFIXES` (sebelumnya halaman itu selalu 302 ke `/login` untuk
+    semua orang — termasuk orang tua yang sudah masuk, jadi tidak ada perilaku
+    yang hilang). Bila PRD nanti menghendaki mode anak-membuka-sendiri, putuskan
+    ulang di sini.
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -502,7 +521,101 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 
 8. **Verifikasi**: `npm test` 130 passed, `tsc --noEmit` clean, `npm run build` hijau.
 
-9. **Open question**: Halaman detail area (`/learn/area/:code?child=`) belum dibuat — perlu untuk 7.5 "Build area selection" penuh. Client-side activity renderer (`/activity/[id].astro`) belum ada — Phase 7.6/7.7 butuh halaman aktivitas interaktif utuh. Server-side data sudah siap lewat session start.
+9. **Open question**: ~~Halaman detail area (`/learn/area/:code?child=`) belum
+   dibuat~~ (selesai 2026-10-06, lihat Keputusan Phase 7 lanjutan di bawah) —
+   Client-side activity renderer juga sudah ada sejak run 2026-10-06.
+
+## Keputusan Phase 7 (lanjutan) — area detail + layar aktivitas (VRD 7.5–7.7, 2026-10-06)
+
+Konteks: child home sudah ada tetapi dua tautan inti belum berfungsi —
+area 404 (OQ 19) dan tombol "Mulai" mengirim POST form ke endpoint yang tidak
+pernah merespons halaman. Run ini menutup **loop belajar utuh**: anak pilih
+aktivitas → menjawab → umpan balik → progres tersimpan.
+
+1. **Halaman detail area `/learn/area/:code?child=` (7.5)**:
+   - Gerbang server urut: sesi orang tua (middleware) → kepemilikan `?child=`
+     (`getChildForParent`) → `getLearningAreaByCode` → daftar aktivitas
+     PUBLISHED `target_age_min <= usia <= target_age_max`.
+   - Area tak dikenal/tidak aktif → dialihkan kembali ke `/learn?child=`
+     (anti-enumerasi, sama dengan perilaku area kosong).
+   - Tampilan: judul area, daftar baris aktivitas (prompt + tipe + tingkat
+     1–3 dengan teks & bintang, bukan warna saja), tombol "Mulai" menuju
+     `/learn/aktivitas/:id?child=`. Tanpa aktivitas → empty state + tautan
+     kembali. Tanpa JavaScript pun semua tautan tetap berfungsi (MVP offline,
+     tidak mengklaim dukungan non-JS penuh).
+
+2. **Sesi belajar (7.6/7.7) — keputusan: satu sesi per tampilan aktivitas**:
+   - `GET /learn/aktivitas/:id?child=` bila belum membawa `session` valid
+     membuat `learning_session` lalu redirect dengan `session=<uuid>` — muat
+     ulang tidak membuat sesi baru (diuji E2E).
+   - `POST /api/session/complete {sessionId, childId}` (idempoten) menutup
+     sesi; dipanggil klien sebelum tombol "Beranda"/"Aktivitas Berikutnya".
+   - **Sesi baseline (`started_at = ended_at`) ditolak** untuk jawaban maupun
+     penutupan — penanda baseline untuk VRD 8.8 dipertahankan utuh.
+   - `POST /api/session/start` lama dibiarkan (kontrak Phase 7 sebelumnya),
+     tetapi child home kini menautkan langsung ke layar aktivitas.
+
+3. **Penilaian di server (6.9) — `POST /api/activity/attempt`**:
+   - Body `{childId, activityId, sessionId, answer, durationMs?}`; status:
+     401 tanpa sesi, 403 lintas asal, 404 aktivitas tak dikenal/draft atau
+     anak bukan milik sesi ini, 400 sesi asing/sesi baseline/payload tak
+     valid, 400 `ACTIVITY_NOT_READY` bila payload belum bisa dibentuk.
+   - Benar-salah dihitung ulang **hanya dari data server** (`validateAnswer`);
+     klaim `isCorrect` dari klien diabaikan (diuji).
+   - Menyimpan `activity_attempt` (percobaan ke-N), `learning_session` (durasi
+     + jumlah jawaban), dan `learning_progress` (attempts/mastery) dalam satu
+     query — inilah "progress tersimpan" di sasaran loop.
+   - Bahasa umpan balik netral (PRD §10): hanya "Benar!" / "Belum tepat." +
+     penjelasan; daftar kata lulus/gagal/peringkat dibersihkan di test.
+
+4. **Layar aktivitas (`/learn/aktivitas/:id`) — render type-driven**:
+   - `src/lib/activity/content.ts` memetakan baris `activity` +
+     `activity_option` → `ActivityData` lalu `renderActivity` (VRD 6.13/6.14);
+     payload yang tidak valid → layar "Aktivitas Belum Siap" tanpa sesi dan
+     tanpa interaksi (bukan error 500).
+   - Klien: `public/activity/runtime.js` + satu modul per tipe — kumpulkan
+     jawaban, kirim ke server, tampilkan umpan balik, tutup sesi. Tidak ada
+     penilaian di klien. Gaya masuk lewat `src/styles/activity.css`
+     (token-only).
+   - Perbaikan renderer ikut dikerjakan: swatch warna/bentuk yang tadinya
+     ter-escape jadi teks kini dirender benar (`labelHtml` + `safeHexColor`
+     yang menolak nilai bukan-heks), `data-option-id` dan injeksi id ke JS
+     di-escape (audit kecil keamanan konten).
+
+5. **Gerbang rute**: `PROTECTED_PREFIXES` kini mencakup `/learn`,
+   `/learn/**` (via prefiks `/learn`), `/api/activity`, `/api/session` —
+   lihat OQ 22 untuk alasan `/learn`.
+
+6. **Bug yang ditemukan & diperbaiki saat E2E**:
+   - `listPublishedActivitiesForAreaAndAge` memakai `a.sort_order` yang tidak
+     ada di tabel `activity` → halaman area 500. Diurutkan ulang:
+     difficulty, created_at, id.
+   - `sessionBelongsToChild` membaca `(started_at = ended_at)` yang menghasilkan
+     `NULL` (bukan `false`) untuk sesi terbuka → sesi valid selalu ditolak.
+     Diperbaiki dengan `COALESCE(..., false)` (pola sama di endpoint attempt).
+
+7. **Verifikasi**:
+   - `npm test` **164 pass / 0 fail** (13 test baru `test/phase7-learning-loop.test.ts`:
+     pemetaan payload per tipe, guard kepemilikan, penilaian server idempoten,
+     penyimpanan attempt+progress, penutupan sesi, statistik statis layar).
+   - `npx tsc --noEmit` bersih; `npm run build` hijau.
+   - **Smoke E2E HTTP nyata** `node scripts/smoke-loop.mjs` → `SMOKE_LOOP_OK`
+     (23 cek, database segar + 1 aktivitas PUBLISHED ditanam; mencakup alur
+     pilih area → jawab → feedback → progres → sesi selesai, termasuk
+     penolakan lintas-asal, sesi asing, dan profil anak milik orang lain).
+   - `design.md lint DESIGN.md` → **0 error, 0 warning** (CLI cache lokal
+     `node …/_npx/…/@google/design.md/dist/index.js lint` — `npx -y` diblokir
+     pemindai keamanan lingkungan).
+   - **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** dua layar baru:
+     hierarki tunggal per layar (judul → prompt → aksi utama); daftar area
+     memakai baris fungsional, bukan grid kartu identik; touch target ≥44px
+     (`--touch-min`) di semua tombol pilihan & input angka; tingkat ditandai
+     teks+bintang, status jawaban ditandai ikon ✓/✗ + teks (bukan warna saja);
+     nilai visual hanya dari `tokens.css` (semua var `--c-*`/`--sp-*`/`--fs-*`;
+     hex `#174A3A` hanya pada SVG geometris mengikuti pola yang sudah ada);
+     animasi klien 120–260ms di bawah batas 700ms; tanpa audio, tanpa
+     karakter manusia/hewan; "Aktivitas Berikutnya" satu-satunya aksi
+     high-emphasis setelah jawaban benar (retry memakai secondary).
 
 ## Keputusan Phase 4 (lanjutan) — UI buat/ubah/arsip profil anak (2026-10-06)
 
@@ -573,12 +686,17 @@ baru.
 
 ## Untuk run berikutnya
 
-- **Langkah aman berikutnya (VRD 7.5, menutup OQ 19)**: halaman detail area
-  `/learn/area/:code?child=` — daftar aktivitas PUBLISHED per area + usia,
-  mengganti tautan 404 di child home, menuju `POST /api/session/start`.
-- **Phase 8 (UI onboarding baseline) masih menunggu OQ 16** (titik masuk
-  baseline: onboarding pasca-profil vs opsional di `/learn`) **dan** halaman
-  aktivitas interaktif (7.6/7.7 + pemetaan `activity` + `activity_option` →
-  `ActivityData`) yang belum ada — keduanya prasyarat sebelum UI baseline bisa
-  dirender. Jangan mulai UI baseline sebelum salah satunya diputuskan.
-- Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).
+- **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
+  Phase 7.5/7.6/7.7 tutup. Verifikasi ulang dengan `npm run build &&
+  node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`) sebelum lanjut.
+- **Langkah berikutnya (VRD 8.5–8.8 — UI onboarding baseline)**: prasyarat
+  "halaman aktivitas interaktif" kini sudah ada; tersisa **OQ 16** (titik
+  masuk baseline: langkah wajib pasca-profil vs saran opsional di `/learn`
+  dengan tombol "nanti saja"). Rekomendasi audit = opsional di `/learn` +
+  tombol reset di dashboard orang tua — **belum dieksekusi**, butuh konfirmasi
+  Arsyad supaya tidak mengarang alur onboarding. Bila konfirmasi belum ada,
+  langkah aman berikutnya: dokumentasikan konvensi payload aktivitas
+  (OQ 21) ke CONTENT-SPEC §7.13 + tambah fixture test untuk tiap tipe, atau
+  kerjakan uraian Phase 9 (progress view orang tua) bila VRD mengizinkan
+  melewati antrean — **jangan mulai Phase 13**.
+- **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**

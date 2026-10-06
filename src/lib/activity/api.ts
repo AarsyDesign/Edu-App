@@ -125,7 +125,7 @@ export async function listPublishedActivitiesForAreaAndAge(
         AND a.review_status = 'PUBLISHED'
         AND a.target_age_min <= $2
         AND a.target_age_max >= $2
-      ORDER BY a.difficulty ASC, a.sort_order ASC, a.created_at ASC`,
+      ORDER BY a.difficulty ASC, a.created_at ASC, a.id ASC`,
     [learningAreaId, childAge],
   );
 

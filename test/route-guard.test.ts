@@ -59,12 +59,21 @@ function req(path: string): Request {
 
 // ---------- rute terlindungi (3.5) ----------
 
-test("isProtectedPath: /parent dan turunannya terlindungi, sisanya tidak", () => {
+test("isProtectedPath: rute anak & orang tua terlindungi, sisanya tidak", () => {
   assert.equal(isProtectedPath("/parent"), true);
   assert.equal(isProtectedPath("/parent/"), true);
   assert.equal(isProtectedPath("/parent?x=1"), true);
   assert.equal(isProtectedPath("/api/parent/children"), true);
   assert.equal(isProtectedPath("/api/children/123"), true);
+
+  // Child home & turunannya membawa data anak → wajib sesi orang tua;
+  // kepemilikan `?child=` tetap dicek di dalam halaman (VRD 3.7).
+  assert.equal(isProtectedPath("/learn"), true);
+  assert.equal(isProtectedPath("/learn?child=123"), true);
+  assert.equal(isProtectedPath("/learn/area/numbers"), true);
+  assert.equal(isProtectedPath("/learn/aktivitas/abc"), true);
+  assert.equal(isProtectedPath("/api/activity/attempt"), true);
+  assert.equal(isProtectedPath("/api/session/start"), true);
 
   // batas segment: prefiks bukan potongan kata
   assert.equal(isProtectedPath("/parents"), false);
@@ -72,7 +81,6 @@ test("isProtectedPath: /parent dan turunannya terlindungi, sisanya tidak", () =>
   assert.equal(isProtectedPath("/"), false);
   assert.equal(isProtectedPath("/login"), false);
   assert.equal(isProtectedPath("/daftar"), false);
-  assert.equal(isProtectedPath("/learn"), false);
   assert.equal(isProtectedPath("/api/auth/login"), false);
   assert.equal(isProtectedPath("/api/auth/session"), false);
 });

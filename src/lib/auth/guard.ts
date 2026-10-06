@@ -24,7 +24,15 @@ import {
 import { resolveSession, type ResolvedSession } from "./session.ts";
 
 /** Titik masuk yang dilindungi. `"/parent"` juga menutup `/parent/...`. */
-export const PROTECTED_PREFIXES = ["/parent", "/api/parent", "/api/children", "/api/assessment"] as const;
+export const PROTECTED_PREFIXES = [
+  "/learn",
+  "/parent",
+  "/api/parent",
+  "/api/children",
+  "/api/assessment",
+  "/api/activity",
+  "/api/session",
+] as const;
 
 /** Kueri `/parent` cocok; `/parents` dan `/parentx` tidak (batas segment). */
 export function isProtectedPath(pathname: string): boolean {

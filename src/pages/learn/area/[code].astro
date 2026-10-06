@@ -1,0 +1,249 @@
+---
+/**
+ * Halaman detail area belajar (VRD 7.5 — area selection).
+ *
+ * Menautkan kartu area di child home yang sebelumnya mengarah ke halaman
+ * yang belum ada (OPEN QUESTION 19). Daftar hanya memuat aktivitas
+ * PUBLISHED yang rentang usianya mencakup anak; area yang tidak dikenal
+ * dialihkan ke `/learn` dengan hasil sama seperti area non-aktif
+ * (anti-enumerasi, VRD 3.11).
+ *
+ * Kepemilikan profil anak dicek di server (VRD 3.7) sebelum apa pun dirender.
+ */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getDb } from "../../../lib/db/index.ts";
+import { parentIdOf } from "../../../lib/children/api.ts";
+import { getChildForParent } from "../../../lib/auth/guard.ts";
+import { getLearningAreaByCode, listSkillsForArea } from "../../../lib/learning/areas-skills.ts";
+import { listPublishedActivitiesForAreaAndAge } from "../../../lib/activity/api.ts";
+import { getActivityTypeLabel, getDifficultyLabel } from "../../../lib/activity/labels.ts";
+
+const parentIdResult = parentIdOf(Astro);
+if (parentIdResult instanceof Response) {
+  return Astro.redirect("/login");
+}
+const parentId = parentIdResult;
+
+const childId = Astro.url.searchParams.get("child");
+if (!childId) {
+  return Astro.redirect("/parent");
+}
+
+const db = await getDb();
+const child = await getChildForParent(db, childId, parentId);
+if (!child) {
+  return Astro.redirect("/parent");
+}
+
+const area = await getLearningAreaByCode(db, Astro.params.code ?? "");
+if (!area) {
+  return Astro.redirect(`/learn?child=${encodeURIComponent(childId)}`);
+}
+
+const [activities, skills] = await Promise.all([
+  listPublishedActivitiesForAreaAndAge(db, area.areaId, child.age),
+  listSkillsForArea(db, area.areaId),
+]);
+const skillTitle = new Map(skills.map((s) => [s.skillId, s.title]));
+
+const backUrl = `/learn?child=${encodeURIComponent(childId)}`;
+---
+
+<BaseLayout title={area.title} mode="child">
+  <header class="area-header" role="banner">
+    <a class="btn-back" href={backUrl} aria-label="Kembali ke beranda belajar">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+    </a>
+    <div class="area-heading">
+      <h1>{area.title}</h1>
+      <p class="area-sub">Pilih satu aktivitas untuk {child.nickname}.</p>
+    </div>
+  </header>
+
+  <main class="area-main" role="main">
+    {activities.length > 0 ? (
+      <ul class="activity-list" aria-label={`Daftar aktivitas ${area.title}`}>
+        {activities.map((act) => (
+          <li class="activity-row">
+            <div class="activity-info">
+              <h2 class="activity-prompt">{act.prompt}</h2>
+              <p class="activity-meta">
+                <span>{getActivityTypeLabel(act.interactionType)}</span>
+                <span aria-hidden="true">·</span>
+                <span>{getDifficultyLabel(act.difficulty)}</span>
+                {skillTitle.get(act.skillId) && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>{skillTitle.get(act.skillId)}</span>
+                  </>
+                )}
+              </p>
+            </div>
+            <a
+              class="btn-primary"
+              href={`/learn/aktivitas/${act.activityId}?child=${encodeURIComponent(childId)}`}
+            >
+              Mulai
+              <span class="visually-hidden"> aktivitas {act.prompt}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <section class="empty-state" aria-labelledby="empty-heading">
+        <div class="mark" aria-hidden="true">
+          <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+            <rect x="12" y="16" width="48" height="40" rx="8" style="fill: var(--c-soft-blue)" stroke="#174A3A" stroke-width="3" />
+            <path d="M36 24v28M24 30h10M38 30h10" stroke="#174A3A" stroke-width="3" stroke-linecap="round" />
+          </svg>
+        </div>
+        <h2 id="empty-heading">Belum Ada Aktivitas</h2>
+        <p class="sub">
+          Belum ada aktivitas di area ini untuk usia {child.age} tahun. Orang tua
+          bisa memilih area lain atau menambahkan aktivitas di Area Orang Tua.
+        </p>
+        <a class="btn-ghost" href={backUrl}>Kembali</a>
+      </section>
+    )}
+  </main>
+</BaseLayout>
+
+<style>
+  .area-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    background: var(--c-warm-white);
+    border-bottom: var(--border-subtle);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .btn-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--touch-min);
+    height: var(--touch-min);
+    flex: 0 0 auto;
+    border-radius: var(--r-control);
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    text-decoration: none;
+    transition: background var(--dur-tap) var(--ease-out);
+  }
+  .btn-back:hover { background: var(--c-sage); }
+  .btn-back:focus-visible { outline: 2px solid var(--c-deep-green); outline-offset: 2px; }
+
+  .area-heading h1 {
+    font-size: var(--fs-xl);
+    margin: 0;
+  }
+  .area-sub {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+
+  .area-main {
+    padding: var(--sp-5) var(--sp-4) var(--sp-10);
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .activity-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .activity-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    box-shadow: var(--shadow-soft);
+  }
+  @media (min-width: 480px) {
+    .activity-row {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-4);
+    }
+  }
+
+  .activity-info { min-width: 0; }
+  .activity-prompt {
+    font-size: var(--fs-base);
+    margin: 0 0 var(--sp-1);
+    line-height: var(--lh-normal);
+    overflow-wrap: anywhere;
+  }
+  .activity-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: var(--sp-3) var(--sp-6);
+    border-radius: var(--r-control);
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    text-decoration: none;
+    text-align: center;
+    transition: background var(--dur-tap) var(--ease-out);
+    width: 100%;
+    flex: 0 0 auto;
+  }
+  @media (min-width: 480px) {
+    .btn-primary { width: auto; }
+  }
+  .btn-primary:hover { background: var(--c-ink); }
+  .btn-primary:focus-visible { outline: 2px solid var(--c-deep-green); outline-offset: 2px; }
+
+  .empty-state {
+    text-align: center;
+    padding: var(--sp-10) var(--sp-4);
+  }
+  .empty-state .mark { margin: 0 auto var(--sp-4); }
+  .empty-state h2 { font-size: var(--fs-xl); margin-bottom: var(--sp-2); }
+  .empty-state .sub {
+    color: var(--c-muted-ink);
+    max-width: 36ch;
+    margin: 0 auto var(--sp-5);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-6);
+    border-radius: var(--r-control);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--c-deep-green);
+    transition: background var(--dur-tap) var(--ease-out);
+  }
+  .btn-ghost:hover { background: var(--c-soft-green); }
+</style>

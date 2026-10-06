@@ -1,0 +1,213 @@
+---
+/**
+ * Layar aktivitas anak (VRD 7.6 mulai sesi, 7.7 umpan balik & sesi selesai).
+ *
+ * - Kepemilikan profil anak dicek server (VRD 3.7) sebelum apa pun dirender;
+ *   id anak tidak pernah dipercaya dari luar sesi berjalan.
+ * - Aktivitas wajib PUBLISHED dan sesuai usia; kalau tidak, anak kembali ke
+ *   daftar area (tidak ada layar kosong tanpa jalan keluar).
+ * - Payload dirakit ulang dari database (`buildActivityData`); bila tidak
+ *   valid/belum didukung → keadaan "belum siap" (VRD 6.14, gagal aman).
+ * - Satu sesi dibuka per kunjungan layar dan ditutup saat anak menekan
+ *   "Beranda"/"Aktivitas Berikutnya" (VRD 7.6/7.7).
+ */
+import "../../../styles/activity.css";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getDb } from "../../../lib/db/index.ts";
+import { parentIdOf } from "../../../lib/children/api.ts";
+import { getChildForParent } from "../../../lib/auth/guard.ts";
+import { getPublishedActivityById, listPublishedActivitiesForAreaAndAge } from "../../../lib/activity/api.ts";
+import { buildActivityData, loadActivityOptions } from "../../../lib/activity/content.ts";
+import { renderActivity } from "../../../lib/activity/renderer.ts";
+import type { ActivityType } from "../../../lib/activity/domain.ts";
+import { getActivityTypeLabel, getDifficultyLabel } from "../../../lib/activity/labels.ts";
+import { sessionBelongsToChild, startActivitySession } from "../../../lib/progress/sessions.ts";
+
+const parentIdResult = parentIdOf(Astro);
+if (parentIdResult instanceof Response) {
+  return Astro.redirect("/login");
+}
+const parentId = parentIdResult;
+
+const childId = Astro.url.searchParams.get("child");
+if (!childId) {
+  return Astro.redirect("/parent");
+}
+
+const db = await getDb();
+const child = await getChildForParent(db, childId, parentId);
+if (!child) {
+  return Astro.redirect("/parent");
+}
+
+const homeUrl = `/learn?child=${encodeURIComponent(childId)}`;
+const activityId = Astro.params.id ?? "";
+const activity = await getPublishedActivityById(db, activityId);
+if (!activity) {
+  return Astro.redirect(homeUrl);
+}
+
+const areaUrl = `/learn/area/${encodeURIComponent(activity.learningAreaCode)}?child=${encodeURIComponent(childId)}`;
+if (child.age < activity.targetAgeMin || child.age > activity.targetAgeMax) {
+  return Astro.redirect(areaUrl);
+}
+
+const data = buildActivityData({
+  type: activity.interactionType as ActivityType,
+  prompt: activity.prompt,
+  correctAnswer: activity.correctAnswer,
+  options: await loadActivityOptions(db, activityId),
+});
+
+// Keadaan gagal aman: isi belum valid/belum didukung → tanpa sesi, tanpa
+// interaksi, dengan jalan keluar yang jelas (VRD 6.14).
+const notReady = data === null;
+
+let sessionId = "";
+if (!notReady) {
+  const existing = Astro.url.searchParams.get("session");
+  if (existing && (await sessionBelongsToChild(db, existing, childId))) {
+    sessionId = existing;
+  } else {
+    const started = await startActivitySession(db, childId);
+    const params = new URLSearchParams(Astro.url.searchParams);
+    params.set("child", childId);
+    params.set("session", started.sessionId);
+    return Astro.redirect(`/learn/aktivitas/${encodeURIComponent(activityId)}?${params.toString()}`);
+  }
+}
+
+// Aktivitas berikutnya dalam area yang sama; bila habis → kembali ke daftar.
+const siblings = await listPublishedActivitiesForAreaAndAge(db, activity.learningAreaId, child.age);
+const index = siblings.findIndex((a) => a.activityId === activityId);
+const next = index >= 0 ? siblings[index + 1] : undefined;
+const nextUrl = next
+  ? `/learn/aktivitas/${encodeURIComponent(next.activityId)}?child=${encodeURIComponent(childId)}`
+  : areaUrl;
+
+const rendered = data
+  ? renderActivity({
+      activityId,
+      type: activity.interactionType as ActivityType,
+      prompt: activity.prompt,
+      data,
+      explanation: activity.explanation,
+      childAge: child.age,
+      audioEnabled: false,
+      reducedMotion: false,
+    })
+  : "";
+
+const configJson = JSON.stringify({ childId, sessionId, nextUrl, areaUrl }).replace(/</g, "\\u003c");
+---
+
+<BaseLayout title="Aktivitas" mode="child">
+  <header class="play-header" role="banner">
+    <a class="btn-back" href={areaUrl} data-leave-session aria-label="Kembali ke daftar aktivitas">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+    </a>
+    <p class="play-meta">
+      <span>{getActivityTypeLabel(activity.interactionType)}</span>
+      <span aria-hidden="true">·</span>
+      <span>{getDifficultyLabel(activity.difficulty)}</span>
+    </p>
+  </header>
+
+  <main class="play-main" role="main">
+    {notReady ? (
+      <section class="not-ready" role="alert">
+        <h1>Aktivitas Belum Siap</h1>
+        <p>
+          Isi aktivitas ini belum bisa dipakai. Pilih aktivitas lain di daftar
+          area ya.
+        </p>
+        <a class="btn-list" href={areaUrl}>Lihat daftar aktivitas</a>
+      </section>
+    ) : (
+      <>
+        <script type="application/json" id="activity-config" set:html={configJson}></script>
+        <Fragment set:html={rendered} />
+        <script is:inline type="module">
+          import { initActivityChrome } from "/activity/runtime.js";
+          initActivityChrome();
+        </script>
+      </>
+    )}
+  </main>
+</BaseLayout>
+
+<style>
+  .play-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--c-warm-white);
+    border-bottom: var(--border-subtle);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .btn-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--touch-min);
+    height: var(--touch-min);
+    flex: 0 0 auto;
+    border-radius: var(--r-control);
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    text-decoration: none;
+    transition: background var(--dur-tap) var(--ease-out);
+  }
+  .btn-back:hover { background: var(--c-sage); }
+  .btn-back:focus-visible { outline: 2px solid var(--c-deep-green); outline-offset: 2px; }
+  .play-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  .play-main {
+    padding: var(--sp-4) var(--sp-4) var(--sp-8);
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .not-ready {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-3);
+    text-align: center;
+    padding: var(--sp-8) var(--sp-4);
+    background: var(--c-soft-blue);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+  }
+  .not-ready h1 {
+    font-size: var(--fs-xl);
+    margin: 0;
+  }
+  .not-ready p {
+    margin: 0;
+    max-width: 36ch;
+    color: var(--c-ink);
+  }
+  .btn-list {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-6);
+    border-radius: var(--r-control);
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .btn-list:hover { background: var(--c-ink); }
+</style>

@@ -1,0 +1,15 @@
+/** Tipe TRUE_FALSE — ketuk Benar/Salah, jawaban langsung dikirim. */
+import { getRoot, submitAnswer } from "./runtime.js";
+
+export function initTrueFalse(activityId, _correctAnswer) {
+  const root = getRoot(activityId);
+  if (!root) return;
+  const buttons = [...root.querySelectorAll(".option-btn")];
+  for (const btn of buttons) {
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      for (const other of buttons) other.setAttribute("aria-pressed", String(other === btn));
+      submitAnswer(activityId, (btn.dataset.optionId ?? "") === "true");
+    });
+  }
+}
