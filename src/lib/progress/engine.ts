@@ -8,8 +8,8 @@
  *
  * Otorisasi: modul ini menerima `childId` apa adanya. Setiap pemanggil wajib
  * sudah memvalidasi sesi + kepemilikan lewat `getChildForParent()` (VRD 3.7)
- * sebelum memanggil; pada run ini belum ada endpoint yang mengekspos fungsi
- * ini (ringkasan orang tua menyusul di Phase 10, VRD 9.8).
+ * sebelum memanggil; endpoint `GET /api/parent/progress` (VRD 9.8) adalah
+ * satu-satunya titik keluar ke klien saat ini.
  *
  * Angka yang dihasilkan adalah FAKTA (jumlah percobaan, jumlah benar) — tanpa
  * label lulus/gagal/peringkat (PRD §9, §10) dan tanpa persentase yang dipaksa

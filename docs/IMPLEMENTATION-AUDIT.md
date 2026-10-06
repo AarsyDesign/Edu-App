@@ -66,7 +66,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 6 | Activity Engine | ✅ DONE | 2026-10-05 (commit `...`) — 6.1 domain contract + 6.2–6.8 renderers + 6.13 type-driven renderer + 6.9 server validation + 6.15 test fixtures + **48 test baru** (type guards, fixtures, server validation, renderer, invalid payload safety, retry/completion/feedback hooks); semua 130 test hijau |
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; **2026-10-06 (run ini)**: 7.5 halaman detail area (menutup OQ 19) + 7.6/7.7 layar aktivitas interaktif, endpoint `/api/activity/attempt` & `/api/session/complete`, sesi per-tampilan, smoke E2E `SMOKE_LOOP_OK` (23 cek) |
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
-|| 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 (run ini) — **9.1–9.5 mesin + test**: `src/lib/progress/engine.ts` (9.3 akurasi per skill, 9.4 performa terkini berjendela) + 6 test baru; 9.1/9.2/9.5 diverifikasi lewat test, 9.7 tanpa label & tanpa angka dari data kosong; **9.6 sengaja ditahan** (tanpa bukti → OQ 23); **9.8** ringkasan orang tua menyusul |
+|| 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -784,6 +784,58 @@ aman menunjuk mesin progress **tanpa UI**. Tidak ada layar baru di run ini.
    `test/phase9-progress-engine.test.ts`), `npx tsc --noEmit` bersih,
    `npm run build` hijau, `node scripts/smoke-loop.mjs` → **SMOKE_LOOP_OK**.
 
+## Keputusan Phase 9 (lanjutan) — ringkasan orang tua (VRD 9.8, 2026-10-06)
+
+Konteks: mesin progres (9.1–9.5) sudah ada; langkah aman menunjuk **9.8
+ringkasan siap-baca orang tua, tanpa UI** — baris datanya baru dirender
+bersama Phase 10.1 (child overview).
+
+1. **Modul agregasi murni** `src/lib/progress/summary.ts` —
+   `getParentProgressSummary(db, child, {window?})` hanya mengagregasi fakta
+   dari mesin yang sudah ada: `getSkillAccuracy` + `getRecentPerformance`
+   (engine.ts), `getAreaProgress` (recommendation.ts), `getNextRecommendation`
+   (9.5), `listLearningAreas` (Phase 5), dan hitungan sesi dari
+   `learning_session`. Tidak ada ambang baru, tidak ada tulis (test
+   memastikan sumbernya bebas `INSERT/UPDATE/DELETE`).
+2. **Isi ringkasan** (PRD §12 dashboard orang tua):
+   - `totals` — attempts/correct dari `SUM(learning_progress)`, `accuracy`
+     `null` bila attempts 0, jumlah skill yang pernah dipraktikkan.
+   - `areas[]` — enam learning area + `{attempted, completed, totalSkills}`
+     per area (judul dari database, bukan hardcoded).
+   - `skills[]` — akurasi per skill urut `skillId` (9.3).
+   - `recent` — jendela performa terkini + `errorsBySkill` (PRD §21
+     *error distribution by skill*); nilai `window` di luar 1..50 jatuh ke
+     bawaan 10 di dalam engine, bukan ke nol.
+   - `sessions` — `{completed, open, baseline, total, totalDurationMs,
+     lastEndedAt}`; sesi asesmen dasar (`started_at = ended_at`) dihitung
+     **terpisah** supaya penanda Phase 8 tidak tercampur durasi sesi belajar;
+     `totalDurationMs`/`lastEndedAt` `null` bila belum ada sesi tertutup.
+   - `lastPracticedAt`, `nextRecommendation` (saran latihan, PRD §12).
+3. **Endpoint** `GET /api/parent/progress?child=<uuid>[&window=1..50]`
+   (`src/pages/api/parent/progress.ts`) berada di prefiks `/api/parent` yang
+   sudah dijaga middleware (VRD 3.5), lalu `parentIdOf()` (VRD 3.8) +
+   `getChildForParent()` (VRD 3.7). Tanpa sesi → 401; `child` hilang → 400;
+   id rusak/tidak ada/milik orang tua lain → **404 dengan badan identik**
+   (diuji `deepEqual`). Profil **terarsip tetap bisa dibaca** — arsip
+   menyembunyikan profil dari alur belajar, bukan merampas riwayat milik
+   orang tua itu (keputusan eksplisit; bila Arsyad ingin sebaliknya, cukup
+   tambah klausa `archived_at IS NULL`).
+4. **Tanpa label (9.6/9.7)**: keluaran murni angka + id + waktu; test
+   memindai seluruh JSON terhadap daftar kata terlarang (lulus/gagal/peringkat/
+   leaderboard/…) dan memastikan `parentAccountId` tidak pernah keluar
+   (`cache-control: no-store` bawaan `jsonResponse`).
+5. **9.1/9.2/9.5 ikut teruji ulang lewat endpoint**: 6 jawaban (3 benar)
+   → `totals.accuracy = 0.5`, sesi tertutup + sesi baseline = `{completed: 1,
+   baseline: 1, total: 2}`, `nextRecommendation` menunjuk skill yang memang
+   belum dikuasai.
+6. **Anti-slop**: **checklist layar dilewati (tanpa layar baru)** — run ini
+   hanya menambah modul data + endpoint JSON, tidak ada markup/layout/copy.
+   `node <cache>/@google/design.md/dist/index.js lint DESIGN.md` tetap
+   dijalankan: **0 error, 0 warning** (1 info: ringkasan token).
+7. **Verifikasi**: `npm test` **182 pass / 0 fail** (6 baru di
+   `test/parent-progress-summary.test.ts`), `npx tsc --noEmit` bersih,
+   `npm run build` hijau, `node scripts/smoke-loop.mjs` → `SMOKE_LOOP_OK`.
+
 ## Untuk run berikutnya
 
 - **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
@@ -791,18 +843,21 @@ aman menunjuk mesin progress **tanpa UI**. Tidak ada layar baru di run ini.
   node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`) sebelum lanjut.
 - **OQ 21 selesai 2026-10-06** — konvensi payload kini mengikat di
   CONTENT-SPEC §7 + `test/content-payload-conventions.test.ts`.
+- **VRD 9.8 selesai 2026-10-06** — `src/lib/progress/summary.ts` +
+  `GET /api/parent/progress` (fakta murni, tanpa UI). Phase 9 kini hanya
+  menyisakan **9.6 yang menunggu OQ 23** (bukti ambang mastery / apakah
+  rekomendasi cukup berbasis "skill belum pernah dicoba").
 - **UI onboarding baseline (OQ 16 + OQ 17) masih tertahan**: butuh konfirmasi
   Arsyad soal titik masuk, **dan** sampai Phase 13 menanam konten kolam
   baseline <5 aktivitas (POST menolak) sehingga layarnya akan selalu buntu.
   Jangan bangun layar mati — tunda sampai salah satu syarat terpenuhi.
-- **Langkah aman berikutnya: VRD 9.8 — ringkasan progres siap-baca orang
-  tua** (fungsi server + endpoint `GET` di prefix `/api/parent` yang sudah
-  terproteksi middleware, kepemilikan via `getChildForParent`), **tanpa UI
-  dulu**; baris ringkasannya baru dirender bersama Phase 10.1 (child
-  overview). Setelah 9.8, Phase 9 hanya menyisakan **9.6 yang menunggu OQ 23**
-  (bukti ambang mastery / apakah rekomendasi cukup berbasis "skill belum
-  pernah dicoba"). Mesin yang sudah ada dan dipakai langkah itu:
-  `getSkillAccuracy` + `getRecentPerformance` di `src/lib/progress/engine.ts`.
+- **Langkah aman berikutnya: VRD 10.1 — child overview di dashboard orang
+  tua**: merender ringkasan yang sudah ada (panggil
+  `getParentProgressSummary` lewat `GET /api/parent/progress`) menjadi baris
+  yang bisa dipahami orang tua <30 detik (PRD §12/§22), low-density, tanpa
+  vanity metrics — **layar baru → checklist anti-slop DESIGN-SYSTEM §12 +
+  skill antislop-ui wajib dijalankan**, plus `npx -y @google/design.md lint
+  DESIGN.md` 0 error dan QA E2E eksploratif 390px/768px.
 - **Verifikasi ulang tiap run**: `npm test && npx tsc --noEmit && npm run
   build && node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`).
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**
