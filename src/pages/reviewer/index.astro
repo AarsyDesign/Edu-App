@@ -1,0 +1,237 @@
+---
+/**
+ * Reviewer Dashboard (VRD 11.1).
+ * Ringkasan aktivitas menunggu review + akses cepat ke editor.
+ * Hanya reviewer yang bisa mengakses (guard middleware sudah pasang).
+ */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getDb } from "../../lib/db/index.ts";
+import { listLearningAreas } from "../../lib/learning/areas-skills.ts";
+
+const db = await getDb();
+const areas = await listLearningAreas(db);
+
+// Ambil statistik aktivitas per status
+const stats = await db.query<{
+  review_status: string;
+  count: string;
+}>(`
+  SELECT review_status, COUNT(*)::text AS count
+  FROM activity
+  GROUP BY review_status
+  ORDER BY review_status
+`);
+
+const statsMap = Object.fromEntries(stats.rows.map(r => [r.review_status, Number(r.count)]));
+
+const totalDraft = statsMap.DRAFT ?? 0;
+const totalHumanReview = statsMap.HUMAN_REVIEW ?? 0;
+const totalQaApproved = statsMap.QA_APPROVED ?? 0;
+const totalPublished = statsMap.PUBLISHED ?? 0;
+const totalFlagged = statsMap.FLAGGED ?? 0;
+const totalUnpublished = statsMap.UNPUBLISHED ?? 0;
+---
+
+<BaseLayout title="Reviewer Dashboard" mode="parent">
+  <main class="reviewer-dashboard">
+    <header class="dashboard-header">
+      <h1>Area Reviewer</h1>
+      <p class="subtitle">Manajemen konten belajar</p>
+    </header>
+
+    <section class="stats-grid" aria-label="Statistik aktivitas">
+      <article class="stat-card">
+        <span class="stat-value">{totalDraft}</span>
+        <span class="stat-label">Draft</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-value">{totalHumanReview}</span>
+        <span class="stat-label">Menunggu Review</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-value">{totalQaApproved}</span>
+        <span class="stat-label">QA Approved</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-value">{totalPublished}</span>
+        <span class="stat-label">Published</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-value">{totalFlagged}</span>
+        <span class="stat-label">Flagged</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-value">{totalUnpublished}</span>
+        <span class="stat-label">Unpublished</span>
+      </article>
+    </section>
+
+    <section class="actions">
+      <a href="/reviewer/aktivitas/baru" class="btn-primary">+ Buat Aktivitas Baru</a>
+      <a href="/reviewer/aktivitas" class="btn-secondary">Daftar Semua Aktivitas</a>
+    </section>
+
+    <section class="areas-overview" aria-label="Learning areas">
+      <h2>Area Belajar</h2>
+      <div class="areas-grid">
+        {areas.map(area => (
+          <a href={`/reviewer/aktivitas?area=${area.code}`} class="area-card">
+            <h3>{area.title}</h3>
+            <span class="area-code">{area.code}</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .reviewer-dashboard {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: var(--sp-6) var(--sp-4);
+    }
+
+    .dashboard-header {
+      margin-bottom: var(--sp-6);
+    }
+
+    .dashboard-header h1 {
+      font-size: var(--fs-2xl);
+      font-weight: 700;
+      color: var(--c-deep-green);
+      margin: 0 0 var(--sp-1);
+    }
+
+    .subtitle {
+      color: var(--c-muted-ink);
+      font-size: var(--fs-base);
+      margin: 0;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-8);
+    }
+
+    .stat-card {
+      background: var(--c-warm-white);
+      border: var(--border-subtle);
+      border-radius: var(--r-card);
+      padding: var(--sp-5) var(--sp-4);
+      text-align: center;
+    }
+
+    .stat-value {
+      display: block;
+      font-size: var(--fs-2xl);
+      font-weight: 700;
+      color: var(--c-deep-green);
+      line-height: 1.2;
+    }
+
+    .stat-label {
+      font-size: var(--fs-sm);
+      color: var(--c-muted-ink);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-8);
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: var(--touch-min);
+      padding: 0 var(--sp-5);
+      border-radius: var(--r-control);
+      font-family: var(--font-body);
+      font-size: var(--fs-base);
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+    }
+
+    .btn-primary {
+      background: var(--c-deep-green);
+      color: var(--c-warm-white);
+      border: none;
+    }
+
+    .btn-primary:hover {
+      background: var(--c-ink);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: var(--c-soft-green);
+      color: var(--c-deep-green);
+      border: var(--border-subtle);
+    }
+
+    .btn-secondary:hover {
+      background: var(--c-sage);
+    }
+
+    .areas-overview h2 {
+      font-size: var(--fs-xl);
+      font-weight: 700;
+      color: var(--c-ink);
+      margin: 0 0 var(--sp-4);
+    }
+
+    .areas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: var(--sp-3);
+    }
+
+    .area-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-1);
+      padding: var(--sp-4);
+      background: var(--c-warm-white);
+      border: var(--border-subtle);
+      border-radius: var(--r-card);
+      text-decoration: none;
+      transition: transform var(--dur-tap) var(--ease-out), box-shadow var(--dur-tap) var(--ease-out);
+    }
+
+    .area-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .area-card h3 {
+      margin: 0;
+      font-size: var(--fs-base);
+      font-weight: 700;
+      color: var(--c-deep-green);
+      text-align: center;
+    }
+
+    .area-code {
+      font-size: var(--fs-xs);
+      color: var(--c-muted-ink);
+      font-family: var(--font-body);
+    }
+
+    .reduce-motion .btn-primary,
+    .reduce-motion .btn-secondary,
+    .reduce-motion .area-card {
+      transition: none;
+    }
+  </style>
+</BaseLayout>
