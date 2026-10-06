@@ -20,6 +20,7 @@ import { getDb } from "../../../lib/db/index.ts";
 import { parentIdOf } from "../../../lib/children/api.ts";
 import { getChildForParent } from "../../../lib/auth/guard.ts";
 import { getParentProgressSummary } from "../../../lib/progress/summary.ts";
+import { getSessionDetails } from "../../../lib/progress/sessions.ts";
 
 const parentIdResult = parentIdOf(Astro);
 if (parentIdResult instanceof Response) {
@@ -34,6 +35,7 @@ if (!child) {
 }
 
 const summary = await getParentProgressSummary(db, child);
+const sessionDetails = await getSessionDetails(db, child.childId);
 
 /** Durasi sesi dalam bahasa manusia (detik → menit → jam). */
 function formatDuration(ms: number): string {
@@ -114,8 +116,46 @@ const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
       <p class="cta">
         <a class="btn-primary" href={learnUrl}>Buka layar belajar</a>
       </p>
-    </>
-  ) : (
+
+      {sessionDetails.length > 0 && (
+        <section class="section" aria-label="Riwayat sesi">
+          <h2>Riwayat Sesi</h2>
+          <ul class="session-list">
+            {sessionDetails.map((session) => (
+              <li class="session-item">
+                <div class="session-main">
+                  <span class="session-type">
+                    {session.isBaseline ? "Asesmen Dasar" : "Sesi Belajar"}
+                  </span>
+                  <time class="session-time" dateTime={session.startedAt.toISOString()}>
+                    {formatDateTime(session.startedAt)}
+                  </time>
+                </div>
+                <div class="session-meta">
+                  {session.isBaseline ? (
+                    <span class="session-badge baseline">Asesmen</span>
+                  ) : session.endedAt === null ? (
+                    <span class="session-badge open">Terbuka</span>
+                  ) : (
+                    <span class="session-meta-row">
+                      <span>{session.attemptCount} jawaban</span>
+                      <span>
+                        {session.durationMs !== null
+                          ? formatDuration(session.durationMs)
+                          : "—"}
+                      </span>
+                      <time class="session-ended" dateTime={session.endedAt.toISOString()}>
+                        selesai {formatDateTime(session.endedAt)}
+                      </time>
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>) : (
     <div class="empty-state">
       <h2>Belum ada latihan</h2>
       <p>{child.nickname} belum mengerjakan aktivitas. Mulai dari beranda belajar.</p>
@@ -275,5 +315,79 @@ const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
     color: var(--c-muted-ink);
     max-width: 40ch;
     margin: 0 auto var(--sp-5);
+  }
+
+  /* Session list (VRD 10.2) */
+  .session-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .session-item {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-4);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-3) var(--sp-4);
+    align-items: start;
+  }
+  @media (max-width: 480px) {
+    .session-item {
+      grid-template-columns: 1fr;
+    }
+  }
+  .session-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+  .session-type {
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    color: var(--c-ink);
+  }
+  .session-time {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  .session-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    justify-content: flex-end;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  @media (max-width: 480px) {
+    .session-meta {
+      justify-content: flex-start;
+      width: 100%;
+    }
+  }
+  .session-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--r-pill);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+  }
+  .session-badge.baseline {
+    background: var(--c-soft-blue);
+    color: var(--c-deep-green);
+  }
+  .session-badge.open {
+    background: var(--c-soft-peach);
+    color: var(--c-ink);
+  }
+  .session-ended {
+    color: var(--c-muted-ink);
   }
 </style>

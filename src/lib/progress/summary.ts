@@ -88,10 +88,10 @@ async function loadTotals(db: Db, childId: string): Promise<Totals> {
     practiced: number | null;
     last: Date | null;
   }>(
-    `SELECT COALESCE(SUM(attempts_count), 0)            AS attempts,
-            COALESCE(SUM(correct_count), 0)             AS correct,
-            COUNT(*) FILTER (WHERE attempts_count > 0)  AS practiced,
-            MAX(last_practiced_at)                      AS last
+    `SELECT COALESCE(SUM(attempts_count), 0) AS attempts,
+            COALESCE(SUM(correct_count), 0) AS correct,
+            COUNT(CASE WHEN attempts_count > 0 THEN 1 END) AS practiced,
+            MAX(last_practiced_at) AS last
        FROM learning_progress
       WHERE child_id = $1::uuid`,
     [childId],
@@ -114,19 +114,21 @@ async function loadSessions(db: Db, childId: string): Promise<SessionSummary> {
     duration_ms: number | null;
     last_ended: Date | null;
   }>(
-    `SELECT COUNT(*) FILTER (WHERE ended_at IS NOT NULL
-                             AND ended_at <> started_at)          AS completed,
-            COUNT(*) FILTER (WHERE ended_at IS NULL)              AS open,
-            COUNT(*) FILTER (WHERE ended_at IS NOT NULL
-                             AND ended_at = started_at)           AS baseline,
-            COUNT(*)                                             AS total,
-            SUM(EXTRACT(EPOCH FROM (ended_at - started_at)) * 1000)
-              FILTER (WHERE ended_at IS NOT NULL
-                      AND ended_at <> started_at)                 AS duration_ms,
-            MAX(ended_at) FILTER (WHERE ended_at IS NOT NULL
-                                  AND ended_at <> started_at)     AS last_ended
-       FROM learning_session
-      WHERE child_id = $1::uuid`,
+    `SELECT
+       COUNT(CASE WHEN ended_at IS NOT NULL AND ended_at <> started_at THEN 1 END) AS completed,
+       COUNT(CASE WHEN ended_at IS NULL THEN 1 END) AS open,
+       COUNT(CASE WHEN ended_at IS NOT NULL AND ended_at = started_at THEN 1 END) AS baseline,
+       COUNT(*) AS total,
+       SUM(
+         CASE
+           WHEN ended_at IS NOT NULL AND ended_at <> started_at
+           THEN EXTRACT(EPOCH FROM (ended_at - started_at)) * 1000
+           ELSE NULL
+         END
+       ) AS duration_ms,
+       MAX(CASE WHEN ended_at IS NOT NULL AND ended_at <> started_at THEN ended_at END) AS last_ended
+     FROM learning_session
+    WHERE child_id = $1::uuid`,
     [childId],
   );
   const r = row.rows[0];

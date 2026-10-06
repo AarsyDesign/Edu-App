@@ -76,3 +76,57 @@ export async function sessionBelongsToChild(
   if (row.rows.length === 0) return false;
   return row.rows[0].child_id === childId && row.rows[0].is_baseline === false;
 }
+
+/** Detail sesi untuk ditampilkan orang tua (VRD 10.2). */
+export interface SessionDetail {
+  sessionId: string;
+  startedAt: Date;
+  endedAt: Date | null;
+  /** `true` = sesi asesmen dasar (penanda `started_at = ended_at`). */
+  isBaseline: boolean;
+  /** Jumlah jawaban dalam sesi ini (hanya sesi belajar, bukan asesmen). */
+  attemptCount: number;
+  /** Durasi sesi belajar tertutup dalam ms; `null` bila belum ditutup/asesmen. */
+  durationMs: number | null;
+}
+
+/** Ambil daftar sesi detail untuk satu anak, terbaru dulu. */
+export async function getSessionDetails(
+  db: Db,
+  childId: string,
+): Promise<SessionDetail[]> {
+  const rows = await db.query<{
+    id: string;
+    started_at: Date;
+    ended_at: Date | null;
+    is_baseline: boolean;
+    attempt_count: number | null;
+    duration_ms: number | null;
+  }>(
+    `SELECT
+       ls.id,
+       ls.started_at,
+       ls.ended_at,
+       COALESCE(ls.started_at = ls.ended_at, false) AS is_baseline,
+       (SELECT COUNT(*) FROM activity_attempt aa WHERE aa.session_id = ls.id) AS attempt_count,
+       CASE
+         WHEN ls.ended_at IS NOT NULL AND ls.ended_at <> ls.started_at
+         THEN EXTRACT(EPOCH FROM (ls.ended_at - ls.started_at)) * 1000
+         ELSE NULL
+       END AS duration_ms
+     FROM learning_session ls
+    WHERE ls.child_id = $1::uuid
+    ORDER BY ls.started_at DESC`,
+    [childId],
+  );
+  return rows.rows.map((r) => ({
+    sessionId: r.id,
+    startedAt: r.started_at,
+    endedAt: r.ended_at,
+    isBaseline: r.is_baseline,
+    attemptCount: Number(r.attempt_count ?? 0),
+    durationMs: r.duration_ms === null || r.duration_ms === undefined
+      ? null
+      : Math.round(Number(r.duration_ms)),
+  }));
+}
