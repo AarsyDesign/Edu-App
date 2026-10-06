@@ -59,6 +59,7 @@ const goalsPreview = child.learningGoals.length > 0
     {isActive && !child.archivedAt && (
       <>
         <a class="btn-secondary" href={onSelect} data-action="select">Pilih</a>
+        <a class="btn-link" href={`/parent/anak/${child.childId}`} data-action="summary">Ringkasan</a>
         <a class="btn-tertiary" href={onEdit} data-action="edit">Ubah</a>
         <form action={onArchive} method="post" class="archive-form" data-archive data-child-name={child.nickname}>
           <button class="btn-ghost-danger" type="submit" data-action="archive">Arsipkan</button>
@@ -246,6 +247,7 @@ const goalsPreview = child.learningGoals.length > 0
 
   /* Button variants following DESIGN.md */
   .btn-secondary,
+  .btn-link,
   .btn-tertiary,
   .btn-ghost-danger {
     display: inline-flex;
@@ -280,6 +282,20 @@ const goalsPreview = child.learningGoals.length > 0
     background: #cde0d3;
   }
   .btn-tertiary:active {
+    transform: scale(0.98);
+  }
+  /* Tautan teks (ringkasan anak) — sengaja beda dari tombol aksi supaya
+     hierarki aksi tetap jelas: Pilih > Ringkasan/Ubah > Arsipkan. */
+  .btn-link {
+    background: transparent;
+    color: var(--c-deep-green);
+    border: none;
+    text-decoration: underline;
+  }
+  .btn-link:hover {
+    color: var(--c-ink);
+  }
+  .btn-link:active {
     transform: scale(0.98);
   }
   .btn-ghost-danger {
@@ -324,6 +340,7 @@ const goalsPreview = child.learningGoals.length > 0
       align-items: stretch;
     }
     .btn-secondary,
+    .btn-link,
     .btn-tertiary,
     .btn-ghost-danger {
       width: 100%;

@@ -281,6 +281,56 @@ try {
   // --- tanpa JavaScript pun tidak ada layar buntu: tautan kembali tersedia ---
   const backLink = await getRaw(`/learn/area/${skill.area_code}?child=${childId}`);
   check("halaman area punya tautan kembali ke /learn", backLink.body.includes(`/learn?child=${childId}`));
+
+  // --- VRD 10.1 ringkasan anak di dashboard orang tua ---
+  const dash = await getRaw("/parent");
+  check(
+    "dashboard menautkan ringkasan anak",
+    dash.status === 200 && dash.body.includes(`/parent/anak/${childId}`),
+    `status=${dash.status}`,
+  );
+
+  const overview = await getRaw(`/parent/anak/${childId}`);
+  check(
+    "ringkasan anak 200 + judul berisi nama anak",
+    overview.status === 200 && overview.body.includes("Ringkasan Nusa"),
+    `status=${overview.status}`,
+  );
+  check(
+    "ringkasan menampilkan tiga fakta + aksi utama",
+    overview.body.includes("Jawaban tersimpan") &&
+      overview.body.includes("Skill dipraktikkan") &&
+      overview.body.includes("Sesi belajar") &&
+      overview.body.includes("Buka layar belajar"),
+  );
+  check(
+    "angka ringkasan dari data nyata (2 jawaban, 1 benar)",
+    overview.body.includes(">2<") && overview.body.includes("1 benar"),
+    "fakta jawaban tidak cocok dengan riwayat",
+  );
+  check(
+    "ringkasan tanpa kata lomba/lulus-gagal",
+    !/\b(lulus|gagal|peringkat|leaderboard|juara)\b/i.test(overview.body),
+  );
+
+  const overviewForeign = await getRaw(`/parent/anak/${randomUUID()}`);
+  check(
+    "profil anak asing di ringkasan → dialihkan ke /parent",
+    [302, 303].includes(overviewForeign.status) &&
+      String(overviewForeign.location).endsWith("/parent"),
+    `status=${overviewForeign.status} loc=${overviewForeign.location}`,
+  );
+
+  const emptyChild = await request("POST", "/api/children", { nickname: "Sela", age: 4 });
+  check("profil anak kedua 201", emptyChild.status === 201, JSON.stringify(emptyChild.body));
+  const emptyOverview = await getRaw(`/parent/anak/${emptyChild.body?.child?.childId}`);
+  check(
+    "anak tanpa latihan → empty state, bukan angka nol acak",
+    emptyOverview.status === 200 &&
+      emptyOverview.body.includes("Belum ada latihan") &&
+      !emptyOverview.body.includes("Jawaban tersimpan"),
+    `status=${emptyOverview.status}`,
+  );
 } catch (err) {
   failed += 1;
   console.error("SMOKE_LOOP_FAIL", err);

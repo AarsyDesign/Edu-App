@@ -1,0 +1,279 @@
+---
+/**
+ * Ringkasan anak untuk orang tua (VRD 10.1 — child overview).
+ *
+ * Gerbang server urut: sesi orang tua (middleware) → kepemilikan profil
+ * (`getChildForParent`, VRD 3.7) → agregasi fakta dari
+ * `getParentProgressSummary` (VRD 9.8, murni baca tanpa ambang baru).
+ * Id rusak/tidak ada/milik orang tua lain menghasilkan hasil yang sama:
+ * redirect `/parent` (anti-enumerasi, VRD 3.11). Profil terarsip tetap bisa
+ * dibaca — arsip menyembunyikan profil dari alur belajar, bukan merampas
+ * riwayat (keputusan Phase 9 lanjutan no. 3).
+ *
+ * PRD §12/§22: orang tua paham keadaan anak dalam <30 detik — makanya layar
+ * ini rendah density: tiga fakta + satu aksi utama, tanpa vanity metrics,
+ * tanpa kata lulus/gagal/peringkat (VRD 9.6/9.7). Bagian lanjutan (sesi,
+ * area, kekuatan, saran latihan) menyusul sebagai item VRD 10.2–10.5.
+ */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getDb } from "../../../lib/db/index.ts";
+import { parentIdOf } from "../../../lib/children/api.ts";
+import { getChildForParent } from "../../../lib/auth/guard.ts";
+import { getParentProgressSummary } from "../../../lib/progress/summary.ts";
+
+const parentIdResult = parentIdOf(Astro);
+if (parentIdResult instanceof Response) {
+  return Astro.redirect("/login");
+}
+
+const childId = Astro.params.id ?? "";
+const db = await getDb();
+const child = await getChildForParent(db, childId, parentIdResult);
+if (!child) {
+  return Astro.redirect("/parent");
+}
+
+const summary = await getParentProgressSummary(db, child);
+
+/** Durasi sesi dalam bahasa manusia (detik → menit → jam). */
+function formatDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  if (totalSec === 0) return "kurang dari 1 detik";
+  if (totalSec < 60) return `${totalSec} detik`;
+  const totalMin = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (totalMin < 60) return sec > 0 ? `${totalMin} menit ${sec} detik` : `${totalMin} menit`;
+  const hour = Math.floor(totalMin / 60);
+  const min = totalMin % 60;
+  return min > 0 ? `${hour} jam ${min} menit` : `${hour} jam`;
+}
+
+function formatDateTime(value: Date): string {
+  return new Date(value).toLocaleString("id-ID", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+const { totals, sessions, areas, lastPracticedAt } = summary;
+const attemptedAreas = areas.filter((a) => a.attempted > 0).length;
+const hasData = totals.attempts > 0 || sessions.total > 0;
+const answerSub = totals.attempts > 0 ? `${totals.correct} benar` : "Belum ada jawaban";
+const sessionSub =
+  sessions.totalDurationMs !== null
+    ? `total ${formatDuration(sessions.totalDurationMs)}`
+    : "Belum ada durasi";
+const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
+---
+
+<BaseLayout title={`Ringkasan ${child.nickname}`} mode="parent">
+  <p class="back-link">
+    <a href="/parent">← Kembali ke Area Orang Tua</a>
+  </p>
+
+  <header class="page-header">
+    <h1>Ringkasan {child.nickname}</h1>
+    <p class="subtitle">Usia {child.age} tahun</p>
+    {child.archivedAt !== null && (
+      <p class="archived-note">
+        Profil ini diarsipkan. Riwayat belajar tetap tersimpan dan bisa dilihat di sini.
+      </p>
+    )}
+    {lastPracticedAt !== null && (
+      <p class="last-practiced">Terakhir berlatih {formatDateTime(lastPracticedAt)}</p>
+    )}
+  </header>
+
+  {hasData ? (
+    <>
+      <section class="section" aria-label="Ringkasan singkat">
+        <dl class="facts">
+          <div class="fact">
+            <dt>Jawaban tersimpan</dt>
+            <dd class="fact-value">{totals.attempts}</dd>
+            <dd class="fact-sub">{answerSub}</dd>
+          </div>
+          <div class="fact">
+            <dt>Skill dipraktikkan</dt>
+            <dd class="fact-value">{totals.skillsPracticed}</dd>
+            <dd class="fact-sub">di {attemptedAreas} dari {areas.length} area belajar</dd>
+          </div>
+          <div class="fact">
+            <dt>Sesi belajar</dt>
+            <dd class="fact-value">{sessions.completed}</dd>
+            <dd class="fact-sub">{sessionSub}</dd>
+          </div>
+        </dl>
+        {sessions.open > 0 && (
+          <p class="open-note">Ada {sessions.open} sesi yang belum ditutup.</p>
+        )}
+      </section>
+
+      <p class="cta">
+        <a class="btn-primary" href={learnUrl}>Buka layar belajar</a>
+      </p>
+    </>
+  ) : (
+    <div class="empty-state">
+      <h2>Belum ada latihan</h2>
+      <p>{child.nickname} belum mengerjakan aktivitas. Mulai dari beranda belajar.</p>
+      <a class="btn-primary" href={learnUrl}>Mulai Belajar</a>
+    </div>
+  )}
+</BaseLayout>
+
+<style>
+  .back-link {
+    margin-bottom: var(--sp-5);
+    font-size: var(--fs-sm);
+  }
+  .back-link a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-min);
+  }
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+
+  .page-header {
+    margin-bottom: var(--sp-6);
+    text-align: center;
+  }
+  .page-header h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+  }
+  @media (min-width: 768px) {
+    .page-header h1 {
+      font-size: var(--fs-3xl);
+    }
+  }
+  .subtitle {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-lg);
+    margin: 0 auto;
+  }
+  .archived-note {
+    color: var(--c-ink);
+    background: var(--c-soft-peach);
+    border-radius: var(--r-control);
+    font-size: var(--fs-sm);
+    max-width: 46ch;
+    margin: var(--sp-3) auto 0;
+    padding: var(--sp-2) var(--sp-3);
+  }
+  .last-practiced {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-sm);
+    margin: var(--sp-3) auto 0;
+  }
+
+  .section {
+    margin-bottom: var(--sp-6);
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-3);
+    margin: 0;
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-5);
+  }
+  @media (min-width: 768px) {
+    .facts {
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-5);
+    }
+  }
+  .fact {
+    margin: 0;
+    padding-bottom: var(--sp-3);
+    border-bottom: var(--border-subtle);
+  }
+  @media (min-width: 768px) {
+    .fact {
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+  }
+  .fact:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .fact dt {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    margin-bottom: var(--sp-1);
+  }
+  .fact-value {
+    font-family: var(--font-heading);
+    font-size: var(--fs-2xl);
+    font-weight: 700;
+    color: var(--c-deep-green);
+    margin: 0 0 var(--sp-1);
+  }
+  .fact-sub {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    margin: 0;
+  }
+
+  .open-note {
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+    margin-top: var(--sp-3);
+  }
+
+  .cta {
+    text-align: center;
+    margin: 0;
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-6);
+    border-radius: var(--r-card);
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+  }
+  .btn-primary:hover {
+    background: var(--c-ink);
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: var(--sp-10) var(--sp-4);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+  }
+  .empty-state h2 {
+    font-size: var(--fs-xl);
+    margin-bottom: var(--sp-2);
+  }
+  .empty-state p {
+    color: var(--c-muted-ink);
+    max-width: 40ch;
+    margin: 0 auto var(--sp-5);
+  }
+</style>
