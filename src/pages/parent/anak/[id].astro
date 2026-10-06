@@ -233,6 +233,22 @@ const topStrengths = practicedSkills
           Belum cukup data untuk menampilkan kekuatan. Mainkan lebih banyak aktivitas dulu.
         </p>
       )}
+
+      {summary.nextRecommendation && (
+        <section class="section" aria-label="Saran latihan">
+          <h2>Saran Latihan Berikutnya</h2>
+          <div class="suggestion-card">
+            <div class="suggestion-main">
+              <span class="suggestion-area">{summary.nextRecommendation.learningAreaTitle}</span>
+              <span class="suggestion-prompt">{summary.nextRecommendation.prompt}</span>
+              <span class="suggestion-meta">
+                Tipe: {summary.nextRecommendation.activityType} · Tingkat: {'★'.repeat(summary.nextRecommendation.difficulty)}{'☆'.repeat(3 - summary.nextRecommendation.difficulty)}
+              </span>
+            </div>
+            <a class="btn-primary" href={`/learn/aktivitas/${summary.nextRecommendation.activityId}?child=${encodeURIComponent(child.childId)}`}>Mulai Aktivitas Ini</a>
+          </div>
+        </section>
+      )}
     </>) : (
     <div class="empty-state">
       <h2>Belum ada latihan</h2>
@@ -606,5 +622,52 @@ const topStrengths = practicedSkills
     color: var(--c-muted-ink);
     margin: var(--sp-3) 0 0;
     text-align: center;
+  }
+
+  /* Suggestion (VRD 10.5) */
+  .suggestion-card {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .suggestion-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .suggestion-area {
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    color: var(--c-deep-green);
+  }
+  .suggestion-prompt {
+    font-size: var(--fs-lg);
+    color: var(--c-ink);
+    line-height: 1.4;
+  }
+  .suggestion-meta {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  @media (min-width: 768px) {
+    .suggestion-card {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .suggestion-main {
+      flex: 1;
+    }
+    .suggestion-prompt {
+      font-size: var(--fs-xl);
+    }
+  }
+  .reduce-motion .btn-primary {
+    transition: none;
   }
 </style>
