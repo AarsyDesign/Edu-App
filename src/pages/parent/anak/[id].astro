@@ -21,6 +21,7 @@ import { parentIdOf } from "../../../lib/children/api.ts";
 import { getChildForParent } from "../../../lib/auth/guard.ts";
 import { getParentProgressSummary } from "../../../lib/progress/summary.ts";
 import { getSessionDetails } from "../../../lib/progress/sessions.ts";
+import { listLearningAreas } from "../../../lib/learning/areas-skills.ts";
 
 const parentIdResult = parentIdOf(Astro);
 if (parentIdResult instanceof Response) {
@@ -68,6 +69,23 @@ const sessionSub =
     ? `total ${formatDuration(sessions.totalDurationMs)}`
     : "Belum ada durasi";
 const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
+
+/** Ambil nama area untuk menampilkan kekuatan. */
+const allAreas = await listLearningAreas(db);
+const areaTitleById = new Map(allAreas.map((a) => [a.areaId, a.title]));
+
+/** Hitung kekuatan: skill dengan akurasi tertinggi (min. 1 percobaan). */
+const skills = summary.skills;
+const practicedSkills = skills.filter((s) => s.attempts > 0);
+const topStrengths = practicedSkills
+  .sort((a, b) => {
+    // urutkan: akurasi tinggi dulu, lalu percobaan banyak (stabilitas), lalu skillId
+    const accA = a.accuracy ?? -1;
+    const accB = b.accuracy ?? -1;
+    if (accB !== accA) return accB - accA;
+    return b.attempts - a.attempts;
+  })
+  .slice(0, 3);
 ---
 
 <BaseLayout title={`Ringkasan ${child.nickname}`} mode="parent">
@@ -183,6 +201,37 @@ const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
             ))}
           </ul>
         </section>
+      )}
+      {topStrengths.length > 0 && (
+        <section class="section" aria-label="Kekuatan">
+          <h2>Kekuatan</h2>
+          <ul class="strengths-list">
+            {topStrengths.map((skill) => {
+              const areaTitle = areaTitleById.get(skill.skillId.split("-")[0]) ?? skill.skillId;
+              const acc = skill.accuracy !== null ? Math.round(skill.accuracy * 100) : null;
+              return (
+                <li class="strength-item">
+                  <span class="strength-skill">{skill.skillId}</span>
+                  <span class="strength-area">{areaTitle}</span>
+                  {acc !== null && (
+                    <span class="strength-accuracy" aria-label={`Akurasi ${acc}%`}>
+                      {acc}%
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <p class="strengths-note">
+            Berdasarkan {practicedSkills.length} skill yang pernah dipraktikkan. Angka = akurasi jawaban benar, bukan label kompetitif.
+          </p>
+        </section>
+      )}
+
+      {practicedSkills.length === 0 && hasData && (
+        <p class="strengths-empty">
+          Belum cukup data untuk menampilkan kekuatan. Mainkan lebih banyak aktivitas dulu.
+        </p>
       )}
     </>) : (
     <div class="empty-state">
@@ -501,5 +550,61 @@ const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
   .reduce-motion .area-progress::-webkit-progress-value,
   .reduce-motion .area-progress::-moz-progress-bar {
     transition: none;
+  }
+
+  /* Strengths (VRD 10.4) */
+  .strengths-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .strength-item {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-3) var(--sp-4);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-3);
+    align-items: center;
+  }
+  @media (max-width: 480px) {
+    .strength-item {
+      grid-template-columns: 1fr;
+    }
+  }
+  .strength-skill {
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    color: var(--c-ink);
+  }
+  .strength-area {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  .strength-accuracy {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--r-pill);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    min-width: 56px;
+    text-align: center;
+  }
+  .strengths-note {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    margin: var(--sp-3) 0 0;
+  }
+  .strengths-empty {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    margin: var(--sp-3) 0 0;
+    text-align: center;
   }
 </style>
