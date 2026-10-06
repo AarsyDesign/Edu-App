@@ -67,7 +67,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; **2026-10-06 (run ini)**: 7.5 halaman detail area (menutup OQ 19) + 7.6/7.7 layar aktivitas interaktif, endpoint `/api/activity/attempt` & `/api/session/complete`, sesi per-tampilan, smoke E2E `SMOKE_LOOP_OK` (23 cek) |
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
-|| 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-06 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) di bawah 3 fakta — **DONE** (commit `f7f2427`); **10.3–10.5 menyusul** (area, kekuatan, saran latihan), 10.6 sudah ada grid pengaturan |
+|| 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-06 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) di bawah 3 fakta — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4–10.5 menyusul** (kekuatan, saran latihan), 10.6 sudah ada grid pengaturan |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -891,8 +891,8 @@ Konteks: mesin ringkasan 9.8 sudah ada tanpa UI; langkah aman menunjuk
 ## Untuk run berikutnya
 
 - **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
-  Phase 7.5/7.6/7.7 tutup. Verifikasi ulang dengan `npm run build &&
-  node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`) sebelum lanjut.
+  Phase 7.5/7.6/7.7 tutup. Verifikasi ulang dengan `npm run build &&`
+  `node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`) sebelum lanjut.
 - **OQ 21 selesai 2026-10-06** — konvensi payload kini mengikat di
   CONTENT-SPEC §7 + `test/content-payload-conventions.test.ts`.
 - **VRD 9.8 selesai 2026-10-06** — `src/lib/progress/summary.ts` +
@@ -902,22 +902,23 @@ Konteks: mesin ringkasan 9.8 sudah ada tanpa UI; langkah aman menunjuk
 - **VRD 10.1 selesai 2026-10-06** — `/parent/anak/:id` (3 fakta + empty
   state) + tautan "Ringkasan" di kartu profil; 187 test, SMOKE_LOOP_OK
   (31 cek), lint DESIGN.md 0 error.
+- **VRD 10.2 selesai 2026-10-06** — daftar sesi belajar di ringkasan anak
+  (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai); terverifikasi
+  E2E via `smoke-loop.mjs`.
+- **VRD 10.3 selesai 2026-10-06 (run ini)** — area belajar dengan progressbar
+  (attempted/total skill), teks "n selesai", aria-label; token desain saja.
+  187 test, tsc bersih, build hijau, SMOKE_LOOP_OK.
 - **UI onboarding baseline (OQ 16 + OQ 17) masih tertahan**: butuh konfirmasi
   Arsyad soal titik masuk, **dan** sampai Phase 13 menanam konten kolam
   baseline <5 aktivitas (POST menolak) sehingga layarnya akan selalu buntu.
   Jangan bangun layar mati — tunda sampai salah satu syarat terpenuhi.
-- **Langkah aman berikutnya: VRD 10.2 — Show sessions** di layar
-  `/parent/anak/:id`: tambahkan daftar sesi belajar (mulai, durasi, jumlah
-  jawaban) dari tabel `learning_session` di bawah tiga fakta yang sudah ada;
-  sesi asesmen dasar ditandai terpisah, tanpa kata lulus/gagal (VRD 9.6/9.7).
-  Lanjutan berurutan: **10.3 learning areas** (baris per area dari
-  `summary.areas`, progressbar + teks "n dari m skill" — bukan warna saja),
-  **10.4 strengths** (fakta akurasi per skill dari `summary.skills`, tanpa
-  label "terkuat" sebelum ada ambang), **10.5 suggested practice**
+- **Langkah aman berikutnya: VRD 10.4 — strengths** di layar
+  `/parent/anak/:id`: tampilkan fakta akurasi per skill dari
+  `summary.skills` (urut skillId, tanpa label "terkuat" sebelum ada ambang,
+  VRD 9.6/9.7). Lanjutan: **10.5 suggested practice**
   (`summary.nextRecommendation` + tautan ke layar aktivitas).
-  Semua item ini **menyentuh UI → checklist anti-slop DESIGN-SYSTEM §12 +
-  skill antislop-ui wajib**, plus lint DESIGN.md 0 error dan QA E2E
-  eksploratif 390px/768px tiap layar baru/berubah.
+  Item ini **menyentuh UI → checklist anti-slop DESIGN-SYSTEM §12 wajib**,
+  plus lint DESIGN.md 0 error dan QA E2E eksploratif 390px/768px.
 - **Verifikasi ulang tiap run**: `npm test && npx tsc --noEmit && npm run
   build && node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`).
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**
