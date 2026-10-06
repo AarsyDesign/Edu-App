@@ -206,16 +206,11 @@ function assembleFromOptions(
       };
 
     case "TRUE_FALSE": {
-      const value = typeof correctAnswer === "boolean"
-        ? correctAnswer
-        : typeof correctAnswer === "number" || typeof correctAnswer === "string"
-          ? Boolean(correctAnswer)
-          : null;
-      if (value === null || !prompt) return null;
-      const data: Record<string, unknown> = { type: lower, statement: prompt, correctAnswer: value };
-      if (typeof meta.trueLabel === "string") data.trueLabel = meta.trueLabel;
-      if (typeof meta.falseLabel === "string") data.falseLabel = meta.falseLabel;
-      return data;
+      // Hanya boolean JSON (CONTENT-SPEC §7.3): dulu angka/teks dipaksa
+      // Boolean(...) sehingga "false" terbaca true dan jawaban benar anak
+      // bisa dinilai salah diam-diam. Salah tipe → gagal aman (VRD 6.14).
+      if (typeof correctAnswer !== "boolean" || !prompt) return null;
+      return { type: lower, statement: prompt, correctAnswer };
     }
 
     case "MATCH":

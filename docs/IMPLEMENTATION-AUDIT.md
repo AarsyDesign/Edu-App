@@ -65,7 +65,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 5 | Learning Areas and Skills | ✅ DONE | 2026-10-05 (commit `...`) — 5.1–5.6 lengkap: 6 learning area + 53 skill (seed migrasi 0003), query API baca + filter usia, 10 test |
 || 6 | Activity Engine | ✅ DONE | 2026-10-05 (commit `...`) — 6.1 domain contract + 6.2–6.8 renderers + 6.13 type-driven renderer + 6.9 server validation + 6.15 test fixtures + **48 test baru** (type guards, fixtures, server validation, renderer, invalid payload safety, retry/completion/feedback hooks); semua 130 test hijau |
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; **2026-10-06 (run ini)**: 7.5 halaman detail area (menutup OQ 19) + 7.6/7.7 layar aktivitas interaktif, endpoint `/api/activity/attempt` & `/api/session/complete`, sesi per-tampilan, smoke E2E `SMOKE_LOOP_OK` (23 cek) |
-| 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding baseline belum ada** (menyusul run berikutnya) |
+| 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -405,7 +405,8 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     saran opsional di `/learn` dengan tombol "nanti saja". Rekomendasi
     sementara: opsional di `/learn` + tombol reset di dashboard orang tua —
     belum dieksekusi, menunggu konfirmasi supaya tidak mengarang alur
-    onboarding.
+    onboarding. **Juga terblokir OQ 17**: sampai Phase 13 menanam konten,
+    kolam <5 dan layarnya akan selalu buntu — jangan dibangun lebih dulu.
 17. **Kolam baseline < 5 aktivitas sebelum Phase 13**: `GET` mengembalikan
     aktivitas yang tersedia apa adanya, tetapi `POST` menolak <5 percobaan
     (VRD 8.8). Konsekuensinya asesmen belum bisa diselesaikan sampai Phase 13
@@ -429,16 +430,16 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     yang sudah ada; bila kelak butuh dukungan non-JS penuh, tambahkan
     parsing `application/x-www-form-urlencoded` + method override di endpoint
     (keputusan keamanan, bukan perbaikan diam-diam).
-21. **Konvensi payload aktivitas belum terdokumentasi (Phase 7.6, 2026-10-06)**:
-    skema `activity.correct_answer` hanya menyebut "data (angka/teks/struktur)"
-    dan `activity_option` hanya "payload jsonb". Pemetaan yang kini dipakai
-    ditulis di `src/lib/activity/content.ts` (dokumen komentar, diuji test):
-    tipe berbasis pilihan → kebenaran dari `activity_option.is_correct`,
-    `COUNT_OBJECTS`/`TRUE_FALSE` → `activity.correct_answer`,
-    `MATCH` → `correct_answer` berbentuk `{answer: {<id kiri>: <id kanan>}}`,
-    urutan `SEQUENCE` harus 0-based. **CONTENT-SPEC §7.13 belum mengikat
-    format ini** — wajib didokumentasikan sebelum Phase 13 menanam konten,
-    kalau tidak konten bisa lolos validasi lalu tampil "belum siap".
+21. ~~**Konvensi payload aktivitas belum terdokumentasi (Phase 7.6, 2026-10-06)**~~ →
+    **SELESAI 2026-10-06**: konvensi kini mengikat di **CONTENT-SPEC §7**
+    ("Activity Payload Conventions": §7.1 dua jalur pembentukan, §7.2 tabel
+    per tipe, §7.3 aturan keras, §7.4 cek eksekusi) — rujukan lama
+    "§7.13" tidak pernah ada, karena CONTENT-SPEC tidak berbagi nomor
+    bagian. Spesifikasi eksekusi: `test/content-payload-conventions.test.ts`
+    (6 test) mengkodekan tiap fixture ke bentuk baris lalu membangun ulang,
+    memeriksa penilaian benar/salah per tipe, kasus gagal aman, penolakan
+    `colorValue` bukan-heks, dan anti-drift (tabel §7.2 wajib memuat kedelapan
+    tipe). **Phase 13 kini punya kontrak penyimpanan yang bisa diuji.**
 22. **Akses child home harus login orang tua (keputusan sementara)**: PRD tidak
     menulis apakah `/learn` boleh dibuka tanpa sesi. Karena `learn.astro`
     sudah mengunci kepemilikan via `locals.parentSession` (VRD 3.7) dan aturan
@@ -684,19 +685,56 @@ baru.
     setelah QA; `astro preview` lama dari run sebelumnya (port 4321, menyajikan
     build basi → 500) ikut dibersihkan.
 
+## Keputusan — konvensi payload aktivitas (CONTENT-SPEC §7, 2026-10-06)
+
+Konteks: langkah aman antrean setelah OQ 16 (titik masuk baseline) menunggu
+konfirmasi Arsyad. OQ 21 adalah prasyarat Phase 13 ("wajib didokumentasikan
+sebelum menanam konten"), sehingga dikerjakan lebih dulu.
+
+1. **CONTENT-SPEC kini punya bagian bernomor §7** ("Activity Payload
+   Conventions"): §7.1 dua jalur pembentukan payload, §7.2 tabel penyimpanan
+   per tipe (prompt / correct_answer / payload activity_option / jawaban
+   anak), §7.3 aturan keras, §7.4 cek eksekusi. Nama "§7.13" pada catatan
+   lama tidak pernah ada isinya — CONTENT-SPEC sebelumnya tanpa nomor bagian.
+2. **MATCH hanya jalur 1** (objek `MatchData` utuh di `correct_answer`);
+   jalur 2 sengaja `null` — pasangan tidak bisa ditebak dari skema. Tertulis
+   eksplisit supaya penyusun konten tidak menaruh MATCH di `activity_option`.
+3. **TRUE_FALSE kini hanya menerima boolean JSON (perbaikan perilaku kecil)**:
+   `assembleFromOptions` dulu memaksa `Boolean(...)` sehingga `correct_answer`
+   berupa teks `"false"` terbaca `true` — jawaban benar anak bisa dinilai
+   salah diam-diam, dan aturan itu bertentangan dengan validator
+   `validateActivityData` yang memang menuntut boolean. Kini salah tipe →
+   `null` → layar "Aktivitas Belum Siap" (gagal aman VRD 6.14), bukan
+   penilaian salah. Label kustom (`trueLabel`/`falseLabel`) hanya lewat jalur 1.
+4. **Spesifikasi eksekusi**: `test/content-payload-conventions.test.ts`
+   mengkodekan kedelapan fixture `activityTestFixtures` ke bentuk baris persis
+   §7.2, membangun ulang (deep-equal), memeriksa `validateAnswer` benar+salah
+   per tipe, kasus gagal aman (MATCH jalur 2, TRUE_FALSE non-boolean/prompt
+   kosong, MULTIPLE_CHOICE tanpa pertanyaan, SEQUENCE bercelah, dua opsi
+   benar), penolakan `colorValue` bukan-heks di renderer, dan test anti-drift
+   yang membaca dokumen (tabel §7.2 wajib memuat kedelapan tipe).
+5. **Tidak ada UI** di run ini → checklist layar dilewati (tanpa layar baru);
+   `node <cache>/@google/design.md/dist/index.js lint DESIGN.md` tetap
+   dijalankan: **0 error, 0 warning** (1 info).
+
 ## Untuk run berikutnya
 
 - **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
   Phase 7.5/7.6/7.7 tutup. Verifikasi ulang dengan `npm run build &&
   node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`) sebelum lanjut.
-- **Langkah berikutnya (VRD 8.5–8.8 — UI onboarding baseline)**: prasyarat
-  "halaman aktivitas interaktif" kini sudah ada; tersisa **OQ 16** (titik
-  masuk baseline: langkah wajib pasca-profil vs saran opsional di `/learn`
-  dengan tombol "nanti saja"). Rekomendasi audit = opsional di `/learn` +
-  tombol reset di dashboard orang tua — **belum dieksekusi**, butuh konfirmasi
-  Arsyad supaya tidak mengarang alur onboarding. Bila konfirmasi belum ada,
-  langkah aman berikutnya: dokumentasikan konvensi payload aktivitas
-  (OQ 21) ke CONTENT-SPEC §7.13 + tambah fixture test untuk tiap tipe, atau
-  kerjakan uraian Phase 9 (progress view orang tua) bila VRD mengizinkan
-  melewati antrean — **jangan mulai Phase 13**.
+- **OQ 21 selesai 2026-10-06** — konvensi payload kini mengikat di
+  CONTENT-SPEC §7 + `test/content-payload-conventions.test.ts`.
+- **UI onboarding baseline (OQ 16 + OQ 17) masih tertahan**: butuh konfirmasi
+  Arsyad soal titik masuk, **dan** sampai Phase 13 menanam konten kolam
+  baseline <5 aktivitas (POST menolak) sehingga layarnya akan selalu buntu.
+  Jangan bangun layar mati — tunda sampai salah satu syarat terpenuhi.
+- **Langkah aman berikutnya: VRD 9.1–9.4 mesin progress** (fungsi server +
+  test deterministik, tanpa UI, tanpa Phase 13). 9.1 (attempt tersimpan) dan
+  dasar 9.3 (attempts/correct per skill) sudah ada di `learning_progress`;
+  tersisa akurasi per skill (9.3), performa terkini (9.4), ringkasan
+  siap-baca orang tua (9.8), lalu 9.5/9.7 dicek ulang agar deterministik dan
+  tidak overfit sampel kecil. Catatan jujur: ini membuka Phase 9 sebelum
+  Phase 8 ditutup penuh — alasannya mesin Phase 8 sudah DONE dan bagian
+  UI-nya terblokir OQ 16+17. Bila Arsyad lebih suka antrean ketat, tutup
+  Phase 8 lebih dulu dengan keputusan OQ 16.
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**
