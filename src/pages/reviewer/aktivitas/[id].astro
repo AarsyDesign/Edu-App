@@ -10,6 +10,7 @@
  */
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import ActivityEditorForm from "../../../components/ActivityEditorForm.astro";
+import ReviewFlowPanel from "../../../components/ReviewFlowPanel.astro";
 import { getDb } from "../../../lib/db/index.ts";
 import {
   listAllSkillsWithArea,
@@ -22,6 +23,7 @@ import {
   getReviewStatusLabel,
   getReviewerActivityDetail,
 } from "../../../lib/activity/reviewer.ts";
+import { listReviewHistory } from "../../../lib/activity/review-flow.ts";
 
 const activityId = Astro.params.id ?? "";
 const db = await getDb();
@@ -33,6 +35,7 @@ if (!detail) {
 
 const areas = detail ? await listLearningAreas(db) : [];
 const skills = detail ? await listAllSkillsWithArea(db) : [];
+const history = detail ? await listReviewHistory(db, activityId) : [];
 
 const data = detail
   ? buildActivityData({
@@ -93,7 +96,11 @@ const promptPreview = detail
       <p>Id tidak dikenal atau aktivitas sudah dihapus.</p>
       <p><a href="/reviewer/aktivitas">Ke daftar aktivitas</a></p>
     </section>
-  ) : !data ? (
+  ) : (
+    <ReviewFlowPanel activityId={detail.activity.id} status={status} history={history} />
+  )}
+
+  {detail && !data ? (
     <section class="notice" role="alert">
       <h2>Isi belum bisa diedit</h2>
       <p>
@@ -107,8 +114,9 @@ const promptPreview = detail
       <h2>Konten terkunci</h2>
       <p>
         Status saat ini: <strong>{statusLabel}</strong>. Konten yang sedang direview
-        atau sudah tayang tidak bisa diedit langsung — ubah status lewat alur review
-        dulu supaya persetujuan tidak terlewati.
+        atau sudah tayang tidak bisa diedit langsung — pindahkan status lewat panel
+        <em> Alur review</em> di atas (mis. "Tarik dari tayang" lalu "Ajukan review
+        ulang") supaya persetujuan tidak terlewati.
       </p>
       <p><a href="/reviewer/aktivitas">Ke daftar aktivitas</a></p>
     </section>

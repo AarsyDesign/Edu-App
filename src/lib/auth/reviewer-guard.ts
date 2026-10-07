@@ -7,7 +7,7 @@
  * - Sesi valid dititipkan ke `locals.reviewerSession`
  * - Proteksi lintas-asal (CSRF berlapis) sama seperti parent
  */
-import type { MiddlewareHandler } from "astro";
+import type { APIContext, MiddlewareHandler } from "astro";
 import { getDb, type Db } from "../../lib/db/index.ts";
 import {
   clearReviewerSessionCookie,
@@ -49,6 +49,19 @@ export function isReviewerProtectedPath(pathname: string): boolean {
 export const REVIEWER_GUARD_MESSAGES = {
   unauthenticated: "Silakan masuk ke akun reviewer terlebih dahulu.",
 } as const;
+
+/**
+ * Ambil reviewer dari sesi middleware (`locals.reviewerSession`), bukan dari
+ * body/kueri klien — pola yang sama dengan `parentIdOf()` (VRD 3.8).
+ * `Response` 401 bila sesi tidak ada di konteks.
+ */
+export function reviewerIdOf(context: APIContext): string | Response {
+  const reviewerId = context.locals.reviewerSession?.reviewerId;
+  if (typeof reviewerId !== "string" || reviewerId.length === 0) {
+    return errorResponse(401, "UNAUTHENTICATED", REVIEWER_GUARD_MESSAGES.unauthenticated);
+  }
+  return reviewerId;
+}
 
 export type ReviewerGuardResult =
   | { allowed: true; session: { reviewerId: string; sessionId: string; expiresAt: Date } }

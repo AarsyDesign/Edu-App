@@ -68,7 +68,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
 || 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-06 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) di bawah 3 fakta — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4–10.5 menyusul** (kekuatan, saran latihan), 10.6 sudah ada grid pengaturan |
-| 11 | Content Management | 🟡 PARTIAL | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 sebagian** (status tampil sebagai teks, transisi belum ada); 11.12–11.14 menyusul |
+| 11 | Content Management | 🟡 PARTIAL | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); 11.12–11.14 menyusul (11.13 sudah dijaga matriks) |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -343,14 +343,19 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 2. Deployment target belum diputuskan (PRD §19 tidak menyebut platform).
    Terkait: folder `db/migrations/` dibaca dari disk saat aplikasi start —
    pastikan ikut ter-deploy, atau set env `MIGRATIONS_DIR`.
-3. **Identitas reviewer konten**: `activity.reviewed_by` dan
+3. ~~**Identitas reviewer konten**: `activity.reviewed_by` dan
    `content_review.reviewer` berupa `uuid` tanpa FK karena akun reviewer harus
    terpisah dari akun orang tua (PRD §13) dan tabelnya belum ada. Putuskan di
-   Phase 11 (Content Management) lalu tambahkan FK lewat migrasi baru.
-4. **Matriks transisi status konten**: PRD §7 menyebut alur produksi tapi tidak
+   Phase 11 (Content Management) lalu tambahkan FK lewat migrasi baru.~~ →
+   **SELESAI**: migrasi `0004_reviewer_account.sql` membuat `reviewer_account`
+   + `reviewer_session` dan menambahkan FK ke kedua kolom itu.
+4. ~~**Matriks transisi status konten**: PRD §7 menyebut alur produksi tapi tidak
    memberi daftar transisi eksplisit. Skema kini hanya memvalidasi `from ≠ to`
    + enum. Aturan transisi yang sah diputuskan di Phase 11, bukan dikarang di
-   sini.
+   sini.~~ → **SELESAI 2026-10-07** (VRD 11.11): matriks diturunkan persis dari
+   PRD §7 dan kini dijaga dua lapis — `src/lib/activity/review-flow.ts`
+   (aplikasi) + trigger `content_review_check_transition` (migrasi 0005).
+   Rinciannya di "Keputusan Phase 11 (lanjutan) — transisi status".
 5. **Lingkup preferensi per anak**: `app_setting` baru per orang tua. Bila
    preferensi (mis. musik) perlu beda tiap anak, tambahkan kolom `child_id`
    lewat migrasi baru pada Phase 4.
@@ -947,6 +952,87 @@ Konteks: mesin ringkasan 9.8 sudah ada tanpa UI; langkah aman menunjuk
   tidak terjangkau dari browser sesi QA, jadi cek 390px/tablet & reduced-motion
   baru sebatas pemeriksaan kode.
 
+## Keputusan Phase 11 (lanjutan) — transisi status review (VRD 11.11, 2026-10-07)
+
+Konteks: editor + gerbang status sudah ada tetapi belum ada cara memindahkan
+status — konten bisa disimpan sebagai draf tetapi tidak bisa dikirim review,
+disetujui, diterbitkan, ditandai, atau ditarik. Run ini menutup **11.11**
+sekaligus menjawab **OQ 4** (matriks transisi) dan memberi dasar **11.13**
+(publish hanya dari approved state).
+
+1. **Matriks = PRD §7 apa adanya**, di `src/lib/activity/review-flow.ts`
+   (`REVIEW_TRANSITIONS`), sembilan pasang transisi:
+   `DRAFT→HUMAN_REVIEW` (kirim review) · `HUMAN_REVIEW→QA_APPROVED` (setujui)
+   dan `HUMAN_REVIEW→DRAFT` (minta revisi) · `QA_APPROVED→PUBLISHED` (terbit) ·
+   `PUBLISHED→FLAGGED` (tandai masalah) dan `PUBLISHED→UNPUBLISHED` (tarik) ·
+   `FLAGGED→HUMAN_REVIEW` / `FLAGGED→UNPUBLISHED` · `UNPUBLISHED→HUMAN_REVIEW`
+   (ajukan ulang). **Tidak ada transisi lain** — khususnya tidak ada jalan
+   menuju `PUBLISHED` selain dari `QA_APPROVED`, jadi VRD 11.13 berlaku tanpa
+   aturan tambahan. Status yang sama (`from = to`) tidak pernah jadi transisi.
+2. **Dijaga dua lapis**: (a) aplikasi menolak di luar matriks dengan
+   `409 INVALID_TRANSITION` + daftar pilihan yang sah; (b) migrasi
+   `0005_content_review_transitions.sql` memasang trigger BEFORE INSERT
+   `content_review_check_transition` yang memvalidasi `from_status` terhadap
+   `activity.review_status` yang sebenarnya **dan** terhadap matriks yang sama.
+   Karena sinkronisasi status hanya terjadi lewat trigger AFTER INSERT
+   (migrasi 0001), jalur tulis status di luar `content_review` tidak ada —
+   "terbit tanpa lulus QA" mustahil dilakukan kode mana pun.
+3. **Satu jalur tulis**: `POST /api/reviewer/aktivitas/:id/status`
+   `{to_status, notes?}` — gerbang sesi middleware + `reviewerIdOf()` (VRD 3.8,
+   sesi bukan body), cek Origin, rate limit `REVIEWER_WRITE`, catatan opsional
+   maks 2000 karakter (mengikuti CHECK tabel). Penulisan memakai
+   `INSERT … WHERE review_status = from` sehingga dua permintaan bersamaan
+   tidak bisa melompati giliran — yang kalah mendapat `409 STATUS_CHANGED`.
+   `reviewer` terisi dari sesi → `content_review.reviewer` + `activity.reviewed_by`
+   (FK 0004) sehingga riwayat selalu punya nama.
+4. **Riwayat provenance terbaca di layar**: `listReviewHistory()` (terbaru
+   dulu, `LEFT JOIN reviewer_account` — baris tetap tampil bila akunnya
+   terhapus) dirender sebagai `<ol>` di **panel baru `ReviewFlowPanel`** pada
+   `/reviewer/aktivitas/:id`, dipasang **sebelum** formulir sehingga untuk
+   status terkunci (HUMAN_REVIEW/QA_APPROVED/PUBLISHED) pengguna tetap punya
+   jalan keluar — notice "Konten terkunci" kini menunjuk panel itu. `GET`
+   detail ikut mengembalikan `history` untuk QA lewat HTTP.
+5. **Jalur perbaikan konten terbit (OQ 24) terbukti jalan**:
+   `PUBLISHED → UNPUBLISHED` → edit (terbuka kembali) → `→ HUMAN_REVIEW` →
+   `→ QA_APPROVED` → `→ PUBLISHED`. Meloncat langsung ke `PUBLISHED` dari
+   `HUMAN_REVIEW`/`FLAGGED` ditolak di setiap percobaan.
+6. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — satu layar baru
+   berubah (`ReviewFlowPanel` + integrasi di layar detail): hierarki tunggal
+   (status sekarang → langkah → riwayat); satu aksi high-emphasis per layar
+   (langkah maju `primary`, mundur/tunda `secondary`); tanpa gradien/blob/pill,
+   tanpa `@keyframes`/transisi sama sekali (QA browser: 0 animasi →
+   `prefers-reduced-motion` otomatis terpenuhi); status selalu teks, bukan
+   warna; nilai visual hanya token (uji: 0 hex hardcoded, 0 durasi ms);
+   sentuh target terukur di browser **390px: scrollWidth 390, semua target
+   ≥44px (tombol 67px, textarea 68px), 0 elemen melewati viewport**; kontras
+   `.history-meta` sengaja `--c-ink` (bukan `--c-muted-ink` yang di atas
+   ivory hanya 4,45:1 — pola OQ 10 tidak ditambah); tanpa audio, tanpa
+   karakter. `npx -y @google/design.md lint DESIGN.md` → **0 error, 0 warning**
+   (1 info ringkasan token).
+7. **Verifikasi**: `npm test` **228 pass / 0 fail** (12 baru di
+   `test/review-flow.test.ts`: matriks persis §7, penolakan lompatan, trigger
+   DB, sinkronisasi + jejak, endpoint 401/403/400/409, alur penuh, jalur
+   perbaikan konten terbit, riwayat di GET, berkas UI), `tsc --noEmit` bersih,
+   `npm run build` hijau, `node scripts/smoke-loop.mjs` → **SMOKE_LOOP_OK**.
+8. **Smoke E2E baru `npm run smoke:reviewer`** (`scripts/smoke-reviewer.mjs`,
+   port 4401, DB segar, login reviewer sungguhan lewat HTTP) →
+   **SMOKE_REVIEWER_OK** (22 cek): gerbang sesi 303/401, login, buat draf,
+   tolak `DRAFT→PUBLISHED` dan `HUMAN_REVIEW→PUBLISHED` (409), alur penuh
+   sampai terbit, riwayat 3 baris bernama, edit terkunci saat terbit, jalur
+   tarik→edit→ajukan ulang→terbit, catatan >2000 → 400, lintas-asal → 403,
+   layar detail memuat panel + riwayat.
+9. **QA E2E eksploratif di browser sungguhan** (server :4402, sesi reviewer
+   dibuat langsung di DB — jalur login UI diuji oleh smoke, tanpa mengetik
+   kata sandi di peramban): klik "Kirim untuk review" → reload → status
+   "Menunggu review" + baris riwayat "Draf → Menunggu review … oleh Peninjau
+   QA"; klik "Setujui" → "Lulus QA" + notice "Konten terkunci" muncul + satu
+   tombol "Terbitkan"; fokus keyboard bekerja; 390px tanpa overflow;
+   0 animasi di seluruh halaman.
+10. **Tidak dikerjakan**: 11.12 (preview sebagai anak) dan 11.14 (uji feed
+    anak) — tetap antrean berikutnya; 11.13 sudah dijaga matriks tetapi
+    tidak ada test feed anak yang menolak konten non-PUBLISHED selain query
+    `listPublished*` yang sudah difilter (dicek di Phase 7/8).
+
 ## Untuk run berikutnya
 
 - **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
@@ -971,12 +1057,17 @@ Konteks: mesin ringkasan 9.8 sudah ada tanpa UI; langkah aman menunjuk
   Arsyad soal titik masuk, **dan** sampai Phase 13 menanam konten kolam
   baseline <5 aktivitas (POST menolak) sehingga layarnya akan selalu buntu.
   Jangan bangun layar mati — tunda sampai salah satu syarat terpenuhi.
-- **VRD 11.2–11.10 selesai 2026-10-07 (run ini)** — editor aktivitas (daftar,
-  buat, edit) + API + gerbang status + perbaikan login reviewer. 216 test, tsc
-  bersih, build hijau, lint DESIGN.md 0 error, QA E2E HTTP 24/24.
-- **Langkah berikutnya: VRD 11.11 — transisi status review** (approve /
-  request-revision / reject / unpublish): endpoint + riwayat `content_review`
-  + tampilan riwayat di layar detail, **baru** 11.12 preview sebagai anak.
-  Pertimbangan anti-slop: transisi status jangan hanya warna tombol.
-- **Verifikasi ulang tiap run**: `npm test && npx tsc --noEmit && npm run build && node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`).
+- **VRD 11.2–11.10 selesai 2026-10-07** — editor aktivitas (daftar, buat,
+  edit) + API + gerbang status + perbaikan login reviewer.
+- **VRD 11.11 selesai 2026-10-07 (run ini)** — matriks transisi PRD §7
+  (`review-flow.ts` + trigger migrasi 0005), `POST /api/reviewer/aktivitas/:id/status`,
+  jejak `content_review` + riwayat di layar detail (`ReviewFlowPanel`).
+  228 test, tsc bersih, build hijau, lint DESIGN.md 0 error,
+  SMOKE_LOOP_OK + **SMOKE_REVIEWER_OK** (`npm run smoke:reviewer`, baru).
+- **Langkah berikutnya: VRD 11.12 — preview aktivitas sebagai anak**
+  (pakai renderer produksi yang sama, `renderActivity` / `buildActivityData`)
+  baru 11.13–11.14 (uji publish-only-from-approved + feed anak hanya
+  PUBLISHED). Setelah Phase 11: 10.4–10.5 dashboard orang tua (kekuatan,
+  saran latihan) yang masih PARTIAL.
+- **Verifikasi ulang tiap run**: `npm test && ./node_modules/.bin/tsc --noEmit && npm run build && node scripts/smoke-loop.mjs && node scripts/smoke-reviewer.mjs` (harus `SMOKE_LOOP_OK` + `SMOKE_REVIEWER_OK`).
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**

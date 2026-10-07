@@ -1,0 +1,368 @@
+---
+/**
+ * Panel alur review aktivitas (VRD 11.11 — transisi status + jejak provenance).
+ *
+ * Ditampilkan di layar detail aktivitas reviewer, termasuk untuk konten yang
+ * terkunci untuk diedit: status hanya boleh berpindah lewat langkah yang
+ * diizinkan PRD §7 (matriks di `review-flow.ts`, dijaga juga oleh trigger
+ * migrasi 0005), dan setiap perpindahan tercatat di `content_review`.
+ *
+ * Anti-slop: hierarki tunggal (status sekarang → langkah → riwayat), satu
+ * aksi high-emphasis per layar (langkah maju = tombol utama, sisanya
+ * sekunder), status selalu ditulis sebagai teks (bukan warna saja), nilai
+ * visual hanya dari token, tanpa audio, tanpa ilustrasi, tanpa animasi.
+ */
+import {
+  allowedTransitions,
+  type ReviewHistoryRow,
+} from "../lib/activity/review-flow.ts";
+import { getReviewStatusLabel } from "../lib/activity/reviewer.ts";
+
+interface Props {
+  activityId: string;
+  status: string;
+  history: ReviewHistoryRow[];
+}
+
+const { activityId, status, history } = Astro.props;
+const transitions = allowedTransitions(status);
+const statusLabel = getReviewStatusLabel(status);
+
+function formatDateTime(value: Date): string {
+  return new Date(value).toLocaleString("id-ID", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+---
+
+<section class="review-flow" data-review-flow data-activity-id={activityId} aria-labelledby="review-flow-title">
+  <h2 id="review-flow-title">Alur review</h2>
+
+  <p class="current">
+    Status saat ini: <strong data-current-status>{statusLabel}</strong>
+  </p>
+
+  {transitions.length > 0 ? (
+    <>
+      <p class="hint">
+        Hanya langkah berikut yang sah untuk status ini — penerbitan selalu
+        melewati persetujuan, tidak ada jalan pintas.
+      </p>
+
+      <div class="field">
+        <label for="review-notes">Catatan perubahan status (opsional)</label>
+        <textarea
+          id="review-notes"
+          data-review-notes
+          rows="2"
+          maxlength="2000"
+          placeholder="Mis. hasil pemeriksaan jawaban dan penjelasan"
+        ></textarea>
+      </div>
+
+      <div class="actions">
+        {transitions.map((transition) => (
+          <button
+            type="button"
+            class={transition.kind === "primary" ? "btn-primary" : "btn-secondary"}
+            data-transition-to={transition.to}
+            data-transition-label={transition.label}
+          >
+            <span class="action-label">{transition.label}</span>
+            <span class="action-target">→ {getReviewStatusLabel(transition.to)}</span>
+          </button>
+        ))}
+      </div>
+    </>
+  ) : (
+    <p class="hint">Tidak ada langkah review berikutnya dari status ini.</p>
+  )}
+
+  <p class="status" data-flow-status role="status" aria-live="polite"></p>
+
+  <h3>Riwayat review</h3>
+  {history.length > 0 ? (
+    <ol class="history">
+      {history.map((row) => (
+        <li>
+          <p class="history-step">
+            {getReviewStatusLabel(row.fromStatus)} → {getReviewStatusLabel(row.toStatus)}
+          </p>
+          <p class="history-meta">
+            {formatDateTime(row.createdAt)}
+            {row.reviewerName ? ` · oleh ${row.reviewerName}` : " · reviewer"}
+          </p>
+          {row.notes && <p class="history-notes">{row.notes}</p>}
+        </li>
+      ))}
+    </ol>
+  ) : (
+    <p class="history-empty">
+      Belum ada perubahan status — aktivitas masih pada status pembuatannya.
+    </p>
+  )}
+</section>
+
+<script>
+  /**
+   * Kirim transisi status sebagai JSON ke endpoint yang sudah ada.
+   * Sibuk/galat/sukses selalu ditulis sebagai teks pada live region
+   * (status tidak disampaikan lewat warna saja); sukses memuat ulang halaman
+   * supaya formulir, kunci status, dan riwayat ikut diperbarui.
+   */
+  const panel = document.querySelector<HTMLElement>("section[data-review-flow]");
+  const statusLine = panel?.querySelector<HTMLElement>("[data-flow-status]");
+  const notes = panel?.querySelector<HTMLTextAreaElement>("[data-review-notes]");
+  const buttons = panel
+    ? Array.from(panel.querySelectorAll<HTMLButtonElement>("[data-transition-to]"))
+    : [];
+
+  function setStatus(message: string, tone: "busy" | "ok" | "error"): void {
+    if (!statusLine) return;
+    statusLine.textContent = message;
+    statusLine.dataset.tone = tone;
+  }
+
+  async function sendTransition(button: HTMLButtonElement): Promise<void> {
+    const activityId = panel?.dataset.activityId ?? "";
+    const target = button.dataset.transitionTo ?? "";
+    if (!activityId || !target) return;
+
+    for (const other of buttons) other.disabled = true;
+    setStatus("Memproses…", "busy");
+
+    try {
+      const response = await fetch(
+        `/api/reviewer/aktivitas/${encodeURIComponent(activityId)}/status`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            to_status: target,
+            notes: notes?.value.trim() || null,
+          }),
+        },
+      );
+      const data = (await response.json().catch(() => null)) as
+        | { message?: string }
+        | null;
+
+      if (!response.ok) {
+        setStatus(data?.message ?? "Perubahan status gagal. Coba lagi.", "error");
+        return;
+      }
+
+      setStatus(`${data?.message ?? "Status diperbarui."} Memuat ulang halaman…`, "ok");
+      window.location.reload();
+    } catch {
+      setStatus("Jaringan bermasalah — perubahan status tidak terkirim.", "error");
+    } finally {
+      for (const other of buttons) other.disabled = false;
+    }
+  }
+
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      void sendTransition(button);
+    });
+  }
+</script>
+
+<style>
+  .review-flow {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-6);
+    margin-bottom: var(--sp-6);
+  }
+
+  .review-flow h2 {
+    font-size: var(--fs-xl);
+    color: var(--c-deep-green);
+    margin: 0 0 var(--sp-3);
+  }
+
+  .review-flow h3 {
+    font-size: var(--fs-base);
+    color: var(--c-ink);
+    margin: var(--sp-5) 0 var(--sp-3);
+  }
+
+  .current {
+    margin: 0 0 var(--sp-2);
+    font-size: var(--fs-base);
+    color: var(--c-ink);
+  }
+
+  .current strong {
+    font-weight: 700;
+  }
+
+  .hint {
+    margin: 0 0 var(--sp-4);
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    max-width: 64ch;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+  }
+
+  .field label {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--c-ink);
+  }
+
+  .field textarea {
+    min-height: var(--touch-min);
+    padding: var(--sp-3);
+    font: inherit;
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    resize: vertical;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: var(--sp-1);
+    min-height: 52px;
+    padding: var(--sp-2) var(--sp-5);
+    border-radius: var(--r-control);
+    font: inherit;
+    font-size: var(--fs-base);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    border: var(--border-subtle);
+    font-weight: 700;
+  }
+
+  .btn-secondary {
+    background: var(--c-warm-white);
+    color: var(--c-deep-green);
+    border: var(--border-subtle);
+    font-weight: 600;
+  }
+
+  .btn-primary:hover,
+  .btn-secondary:hover {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+  }
+
+  .btn-primary:disabled,
+  .btn-secondary:disabled {
+    opacity: 0.7;
+    cursor: progress;
+  }
+
+  .action-label {
+    display: block;
+  }
+
+  .action-target {
+    display: block;
+    font-size: var(--fs-sm);
+    font-weight: 400;
+    color: inherit;
+    opacity: 0.85;
+  }
+
+  /* Ruang status dipesan supaya layout tidak melompat saat pesan muncul. */
+  .status {
+    min-height: 1.5em;
+    margin: var(--sp-4) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+  }
+
+  .status[data-tone="error"] {
+    background: var(--c-soft-peach);
+    border-radius: var(--r-control);
+    padding: var(--sp-2) var(--sp-3);
+    font-weight: 600;
+  }
+
+  .status[data-tone="ok"] {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    border-radius: var(--r-control);
+    padding: var(--sp-2) var(--sp-3);
+    font-weight: 600;
+  }
+
+  .status[data-tone="busy"] {
+    color: var(--c-muted-ink);
+  }
+
+  .history {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .history li {
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .history-step {
+    margin: 0;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--c-ink);
+  }
+
+  .history-meta {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--fs-xs);
+    /* --c-ink, bukan --c-muted-ink: di atas latar ivory kontras muted-ink
+       4,45:1 (di bawah WCAG AA) — hierarki ditentukan ukuran, bukan warna
+       tipis (lihat OQ 10). */
+    color: var(--c-ink);
+  }
+
+  .history-notes {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+    white-space: pre-wrap;
+  }
+
+  .history-empty {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+</style>

@@ -29,6 +29,7 @@ import {
   replaceActivitySources,
   resolveSkillForArea,
 } from "../../../../lib/activity/reviewer.ts";
+import { listReviewHistory } from "../../../../lib/activity/review-flow.ts";
 
 const EDITOR_MAX_BYTES = 32 * 1024;
 
@@ -40,7 +41,10 @@ export const GET: APIRoute = async ({ params }) => {
   const detail = await getReviewerActivityDetail(db, activityId);
   if (!detail) return errorResponse(404, "NOT_FOUND", "Aktivitas tidak ditemukan.");
 
-  return jsonResponse(detail);
+  // Riwayat transisi status (VRD 11.11) ikut disertakan supaya QA lewat HTTP
+  // bisa memeriksa jejak provenance tanpa akses langsung ke database.
+  const history = await listReviewHistory(db, activityId);
+  return jsonResponse({ ...detail, history });
 };
 
 export const PUT: APIRoute = async ({ request, params }) => {
