@@ -68,9 +68,10 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
 || 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.7/10.8/10.10 tertahan OQ 18 + OQ 14** (halaman audio & privasi belum ada, keputusan produk belum ada) |
-| 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
-| 12 | AI-Assisted Draft Pipeline | ✅ DONE | 2026-10-07 (run ini) — **12.1** skema batch draf + templat prompt (`docs/AI-DRAFT-SCHEMA.md`, konstanta `AI_DRAFT_SCHEMA_VERSION`/`DRAFT_BATCH_MAX` di `src/lib/activity/ai-draft.ts`); **12.3/12.4** `parseDraftBatch` memvalidasi amplop + tiap draf (divalidasi ulang `parseEditorPayload`), satu draf gagal → batch utuh `400 DRAFT_BATCH_INVALID` "Draf ke-N: …" tanpa tulis apa pun; **12.5** `content_origin` DIPAKSA `AI_DRAFT` (klaim draf tak pernah dibaca); **12.6** `POST /api/reviewer/aktivitas/import` menyimpan batch sebagai `DRAFT` di antrean reviewer + **UI impor** `/reviewer/aktivitas/impor` (tempel JSON/unggah file, validasi client-side, status live region, redirect ke daftar); **12.15** kolom `version` sudah ada & +1 saat edit (Phase 11). **12.2 menunggu OQ 26** (provider/model); 12.7–12.13 = proses review manual memakai checklist CONTENT-SPEC di antrean yang sudah ada |
-| 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
+|| 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
+|| 12 | AI-Assisted Draft Pipeline | ✅ DONE | 2026-10-07 (run ini) — **12.1** skema batch draf + templat prompt (`docs/AI-DRAFT-SCHEMA.md`, konstanta `AI_DRAFT_SCHEMA_VERSION`/`DRAFT_BATCH_MAX` di `src/lib/activity/ai-draft.ts`); **12.3/12.4** `parseDraftBatch` memvalidasi amplop + tiap draf (divalidasi ulang `parseEditorPayload`), satu draf gagal → batch utuh `400 DRAFT_BATCH_INVALID` "Draf ke-N: …" tanpa tulis apa pun; **12.5** `content_origin` DIPAKSA `AI_DRAFT` (klaim draf tak pernah dibaca); **12.6** `POST /api/reviewer/aktivitas/import` menyimpan batch sebagai `DRAFT` di antrean reviewer + **UI impor** `/reviewer/aktivitas/impor` (tempel JSON/unggah file, validasi client-side, status live region, redirect ke daftar); **12.15** kolom `version` sudah ada & +1 saat edit (Phase 11). **12.2 menunggu OQ 26** (provider/model); 12.7–12.13 = proses review manual memakai checklist CONTENT-SPEC di antrean yang sudah ada |
+|| 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
+|| 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
 
@@ -1129,6 +1130,46 @@ menutupnya.
 Konteks: Phase 11 ✅, sisa fase parsial tertahan keputusan produk; langkah
 aman berikutnya (tertulis di run sebelumnya) = membangun skema + validasi +
 gerbang review **tanpa menebak provider** (OQ 26).
+
+## Keputusan Phase 14 (VRD 14.4–14.7) — Audit gerak & audio (2026-10-07, run ini)
+
+Audit murni-verifikasi (tanpa perubahan kode) untuk memastikan:
+
+1. **Musik OFF by default (14.4)** — `BaseLayout.astro` mendefinisikan
+   `MUSIC_OFF_DEFAULT = { music: false, sfx: true, voice: true }`; preferensi
+   tersimpan di `localStorage` via `eduAudio.get/set`. Halaman aktivitas anak
+   (`/learn/aktivitas/[id]`, pratinjau reviewer) meneruskan `audioEnabled: false`
+   ke renderer. **Lolos.** (Catatan: 14.1–14.3 mute/SFX/suara suara tetap
+   tertahan OQ 18 + OQ 5 — tidak dibangun, hanya diverifikasi tidak ada audio
+   yang aktif diam-diam.)
+
+2. **Budget animasi 120–700ms (14.5, 14.6)** — Token di `tokens.css`:
+   `--dur-tap: 150ms`, `--dur-card: 240ms`, `--dur-page: 280ms`,
+   `--dur-success: 500ms` — semuanya dalam rentang. **Seluruh transisi di
+   codebase memakai token ini** (tidak ada durasi `ms` hardcoded). Satu-satunya
+   `@keyframes` adalah `slideUp` pada banner offline (`/learn.astro`),
+   mengikuti `var(--dur-card)` = 240ms. **Tidak ada animasi continuous/infinite,
+   tidak ada spinner/loading berputar, tidak ada gerak dekoratif.** Lolos.
+
+3. **`prefers-reduced-motion` benar-benar mematikan gerak non-esensial (14.6)** —
+   `tokens.css` `@media (prefers-reduced-motion: reduce)` memaksa
+   `--dur-* = 0ms` + `animation-duration: 0.01ms !important` +
+   `transition-duration: 0.01ms !important` secara global. Banyak komponen
+   (`learn.astro`, `reviewer/aktivitas/index.astro`, `reviewer/aktivitas/impor.astro`,
+   `ActivityEditorForm.astro`, `ReviewFlowPanel` — 0 animasi) ikut menonaktifkan
+   transisi eksplisit via `.reduce-motion`. **Lolos.**
+
+4. **Anti-slop (DESIGN-SYSTEM §12)** — Run ini tidak menambah layar baru →
+   checklist dilewati jujur. `npx -y @google/design.md lint DESIGN.md` → **0 error,
+   0 warning** (1 info token-summary).
+
+5. **Verifikasi regresi** — `npm test` 258 passed, `tsc --noEmit` bersih,
+   `npm run build` hijau, `design:lint` 0 error, `smoke-loop.mjs` →
+   `SMOKE_LOOP_OK`, `smoke-reviewer.mjs` → `SMOKE_REVIEWER_OK`.
+
+**Status VRD 14.4–14.7: ✅ DONE** (audit selesai, tanpa temuan).
+Langkah berikutnya: **Phase 15 (Privacy & Child Safety Review, 15.1–15.10)** —
+juga verifikasi, bukan pembangunan fitur.
 
 1. **Skema satu pintu (12.1)**: `src/lib/activity/ai-draft.ts` +
    `docs/AI-DRAFT-SCHEMA.md`. Amplop `{schema_version: 1, model?,
