@@ -1,0 +1,554 @@
+---
+/**
+ * Impor batch draf aktivitas dari AI (VRD 12.6).
+ * Mengirim JSON ke endpoint import; hasilnya batch draf berstatus DRAFT
+ * dengan content_origin = AI_DRAFT, siap direview manual.
+ * Halaman ini dilindungi middleware reviewer (VRD 11.1).
+ */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Impor Draf AI" mode="parent">
+  <header class="page-header">
+    <h1>Impor Draf AI</h1>
+    <p class="subtitle">
+      Tempel atau unggah JSON batch draf (skema versi 1).
+      Setiap draf disimpan sebagai <strong>DRAFT</strong> dan ditandai <strong>AI_DRAFT</strong>
+      — tidak pernah langsung terbit tanpa review manusia (PRD §5, VRD 12.5–12.6).
+    </p>
+  </header>
+
+  <section class="import-form" aria-labelledby="import-heading">
+    <h2 id="import-heading">Batch JSON</h2>
+
+    <div class="input-methods">
+      <div class="method-tabs" role="tablist" aria-label="Metode input">
+        <button role="tab" aria-selected="true" aria-controls="tab-paste" id="tab-paste-btn" class="tab-btn active" data-tab="paste">Tempel JSON</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-upload" id="tab-upload-btn" class="tab-btn" data-tab="upload">Unggah file</button>
+      </div>
+
+      <div role="tabpanel" id="tab-paste" aria-labelledby="tab-paste-btn" class="tab-panel active">
+        <label for="json-input" class="visually-hidden">Tempel JSON batch di sini</label>
+        <textarea
+          id="json-input"
+          class="json-textarea"
+          rows="20"
+          spellcheck="false"
+          placeholder='{
+  "schema_version": 1,
+  "model": "nama-model",
+  "prompt_version": "v1",
+  "drafts": [
+    {
+      "area_code": "numbers",
+      "skill_code": "count_1_5",
+      "prompt": "Ada berapa apel?",
+      "interaction_type": "COUNT_OBJECTS",
+      "target_age_min": 3,
+      "target_age_max": 5,
+      "difficulty": 1,
+      "correct_answer": { "type": "count_objects", "objects": [{ "id": "obj-1", "visualKey": "apple", "count": 3 }], "correctAnswer": 3, "maxAnswer": 3 },
+      "explanation": "Ada tiga apel.",
+      "sources": []
+    }
+  ]
+}'>
+        </textarea>
+      </div>
+
+      <div role="tabpanel" id="tab-upload" aria-labelledby="tab-upload-btn" class="tab-panel" hidden>
+        <label for="json-file" class="visually-hidden">Pilih file JSON</label>
+        <input
+          type="file"
+          id="json-file"
+          class="file-input"
+          accept="application/json"
+          aria-describedby="file-hint"
+        />
+        <p id="file-hint" class="file-hint">Maksimal 512 KB. File harus berupa JSON valid.</p>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="btn-import" class="btn-primary" type="button" disabled>
+        <span class="btn-text">Impor Batch</span>
+        <span class="btn-loading" hidden>Memproses…</span>
+      </button>
+      <a href="/reviewer/aktivitas" class="btn-secondary">Batal</a>
+    </div>
+
+    <div id="import-status" class="import-status" role="status" aria-live="polite" hidden></div>
+  </section>
+
+  <section class="schema-ref" aria-labelledby="schema-ref-heading">
+    <h2 id="schema-ref-heading">Referensi Skema Singkat</h2>
+    <details>
+      <summary>Lihat field wajib & aturan batch</summary>
+      <ul>
+        <li><strong>schema_version</strong>: wajib <code>1</code></li>
+        <li><strong>drafts</strong>: array 1–25 draf (VRD 12.2)</li>
+        <li>Per draf wajib: <code>area_code</code>, <code>prompt</code>, <code>interaction_type</code>, <code>target_age_min</code>, <code>target_age_max</code>, <code>difficulty</code>, <code>correct_answer</code></li>
+        <li><code>skill_code</code> opsional (kosong = skill pertama area)</li>
+        <li><code>explanation</code> opsional, <code>sources</code> opsional (maks 5)</li>
+        <li><code>content_origin</code> <strong>tidak dibaca</strong> — sistem memaksa <code>AI_DRAFT</code></li>
+        <li><code>model</code>, <code>prompt_version</code> opsional (provenance saja, maks 120 karakter)</li>
+      </ul>
+      <p>
+        Lengkap: <a href="/reviewer/aktivitas/impor/schema" target="_blank" rel="noopener">docs/AI-DRAFT-SCHEMA.md</a> ·
+        Contoh: <a href="/reviewer/aktivitas/impor/example" target="_blank" rel="noopener">contoh batch</a>
+      </p>
+    </details>
+  </section>
+
+  <p class="back-link">
+    <a href="/reviewer">← Kembali ke Area Reviewer</a>
+  </p>
+</BaseLayout>
+
+<script>
+  // Tab switching
+  const tabs = document.querySelectorAll(".tab-btn");
+  const panels = document.querySelectorAll(".tab-panel");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tab;
+      tabs.forEach((t) => {
+        t.classList.toggle("active", t === tab);
+        t.setAttribute("aria-selected", t === tab);
+      });
+      panels.forEach((p) => {
+        const isTarget = p.id === `tab-${target}`;
+        p.classList.toggle("active", isTarget);
+        p.hidden = !isTarget;
+      });
+    });
+  });
+
+  const textarea = document.getElementById("json-input");
+  const fileInput = document.getElementById("json-file");
+  const btnImport = document.getElementById("btn-import");
+  const btnText = btnImport.querySelector(".btn-text");
+  const btnLoading = btnImport.querySelector(".btn-loading");
+  const statusDiv = document.getElementById("import-status");
+
+  function setBusy(busy: boolean) {
+    btnImport.disabled = busy;
+    btnText.hidden = busy;
+    btnLoading.hidden = !busy;
+  }
+
+  function showStatus(message: string, tone: "ok" | "error" | "busy") {
+    statusDiv.hidden = false;
+    statusDiv.textContent = message;
+    statusDiv.dataset.tone = tone;
+  }
+
+  function clearStatus() {
+    statusDiv.hidden = true;
+    statusDiv.textContent = "";
+    statusDiv.dataset.tone = "";
+  }
+
+  function validateJson(text: string): { ok: boolean; data?: unknown; error?: string } {
+    try {
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { ok: false, error: "Root harus objek JSON." };
+      }
+      return { ok: true, data: parsed };
+    } catch (e) {
+      return { ok: false, error: `JSON tidak valid: ${(e as Error).message}` };
+    }
+  }
+
+  async function doImport(body: unknown) {
+    clearStatus();
+    setBusy(true);
+    showStatus("Mengirim batch…", "busy");
+
+    try {
+      const response = await fetch("/api/reviewer/aktivitas/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const msg = data?.message ?? `Gagal (${response.status})`;
+        showStatus(`Gagal: ${msg}`, "error");
+        return;
+      }
+
+      if (data?.ok) {
+        showStatus(`Berhasil: ${data.imported} draf tersimpan sebagai AI_DRAFT (status DRAFT).`, "ok");
+        setTimeout(() => {
+          window.location.href = "/reviewer/aktivitas";
+        }, 1500);
+      } else {
+        showStatus("Respons tidak dikenali.", "error");
+      }
+    } catch (e) {
+      showStatus(`Jaringan bermasalah: ${(e as Error).message}`, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  btnImport.addEventListener("click", async () => {
+    clearStatus();
+
+    const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab;
+    if (activeTab === "paste") {
+      const text = textarea.value.trim();
+      if (!text) {
+        showStatus("JSON kosong.", "error");
+        return;
+      }
+      const parsed = validateJson(text);
+      if (!parsed.ok) {
+        showStatus(parsed.error!, "error");
+        return;
+      }
+      doImport(parsed.data);
+    } else {
+      const file = fileInput.files?.[0];
+      if (!file) {
+        showStatus("Belum ada file dipilih.", "error");
+        return;
+      }
+      if (file.size > 512 * 1024) {
+        showStatus("File terlalu besar (maks 512 KB).", "error");
+        return;
+      }
+      const text = await file.text();
+      const parsed = validateJson(text);
+      if (!parsed.ok) {
+        showStatus(parsed.error!, "error");
+        return;
+      }
+      doImport(parsed.data);
+    }
+  });
+
+  // Enable button when input has content
+  function checkInput() {
+    const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab;
+    let hasContent = false;
+    if (activeTab === "paste") {
+      hasContent = textarea.value.trim().length > 0;
+    } else {
+      hasContent = (fileInput.files?.length ?? 0) > 0;
+    }
+    btnImport.disabled = !hasContent;
+  }
+
+  textarea.addEventListener("input", checkInput);
+  fileInput.addEventListener("change", checkInput);
+  tabs.forEach((t) => t.addEventListener("click", checkInput));
+  checkInput();
+</script>
+
+<style>
+  .page-header {
+    margin-bottom: var(--sp-6);
+    text-align: center;
+  }
+
+  .page-header h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+    color: var(--c-deep-green);
+  }
+
+  .subtitle {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-base);
+    max-width: 52ch;
+    margin: 0 auto var(--sp-4);
+  }
+
+  .subtitle strong {
+    color: var(--c-ink);
+  }
+
+  .import-form {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-6);
+    margin-bottom: var(--sp-6);
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .import-form h2 {
+    font-size: var(--fs-lg);
+    color: var(--c-ink);
+    margin: 0 0 var(--sp-4);
+  }
+
+  .input-methods {
+    margin-bottom: var(--sp-5);
+  }
+
+  .method-tabs {
+    display: flex;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+    border-bottom: var(--border-subtle);
+    padding-bottom: var(--sp-2);
+  }
+
+  .tab-btn {
+    padding: var(--sp-2) var(--sp-4);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    font-family: var(--font-body);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--c-muted-ink);
+    cursor: pointer;
+    transition: background var(--dur-tap) var(--ease-out), color var(--dur-tap) var(--ease-out);
+  }
+
+  .tab-btn:hover {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+  }
+
+  .tab-btn.active {
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    border-color: var(--c-deep-green);
+  }
+
+  .tab-panel {
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+  }
+
+  .json-textarea {
+    width: 100%;
+    min-height: 320px;
+    padding: var(--sp-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    resize: vertical;
+  }
+
+  .json-textarea:focus {
+    outline: 2px solid var(--c-deep-green);
+    outline-offset: 2px;
+  }
+
+  .file-input {
+    display: block;
+    width: 100%;
+    padding: var(--sp-3);
+    font-family: var(--font-body);
+    font-size: var(--fs-base);
+    color: var(--c-ink);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+  }
+
+  .file-hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+
+  .form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-5);
+    border-radius: var(--r-control);
+    font-family: var(--font-body);
+    font-size: var(--fs-base);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+    border: none;
+  }
+
+  .btn-primary {
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--c-ink);
+  }
+
+  .btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    border: var(--border-subtle);
+  }
+
+  .btn-secondary:hover {
+    background: var(--c-sage);
+  }
+
+  .import-status {
+    margin-top: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-control);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+  }
+
+  .import-status[data-tone="ok"] {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+  }
+
+  .import-status[data-tone="error"] {
+    background: var(--c-soft-peach);
+    color: var(--c-ink);
+  }
+
+  .import-status[data-tone="busy"] {
+    background: var(--c-ivory);
+    color: var(--c-muted-ink);
+  }
+
+  .schema-ref {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-5);
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: var(--sp-6);
+  }
+
+  .schema-ref h2 {
+    font-size: var(--fs-lg);
+    color: var(--c-ink);
+    margin: 0 0 var(--sp-3);
+  }
+
+  .schema-ref summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--c-deep-green);
+    list-style: none;
+  }
+
+  .schema-ref summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .schema-ref summary::before {
+    content: "▸ ";
+    transition: transform var(--dur-tap) var(--ease-out);
+  }
+
+  .schema-ref details[open] summary::before {
+    transform: rotate(90deg);
+  }
+
+  .schema-ref details[open] ul {
+    margin-top: var(--sp-3);
+  }
+
+  .schema-ref ul {
+    margin: 0;
+    padding-left: var(--sp-6);
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+    line-height: 1.8;
+  }
+
+  .schema-ref code {
+    background: var(--c-ivory);
+    padding: 0 2px;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
+  .schema-ref p {
+    margin: var(--sp-3) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+
+  .schema-ref a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+  }
+
+  .back-link {
+    text-align: center;
+    font-size: var(--fs-sm);
+  }
+
+  .back-link a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-min);
+  }
+
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tab-btn,
+    .btn-primary,
+    .btn-secondary,
+    .schema-ref summary {
+      transition: none;
+    }
+  }
+</style>
