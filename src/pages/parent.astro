@@ -70,9 +70,9 @@ const archivedChildren = allChildren.filter((c) => c.archivedAt);
     {activeChildren.length === 0 ? (
       <div class="empty-state">
         <div class="mark" aria-hidden="true">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <rect x="8" y="16" width="48" height="36" rx="6" fill="#DDEDE2" stroke="#174A3A" stroke-width="2" />
-            <path d="M32 22v24M16 28h12M40 28h12" stroke="#174A3A" stroke-width="2" stroke-linecap="round" />
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="color: var(--c-deep-green);">
+            <rect x="8" y="16" width="48" height="36" rx="6" fill="var(--c-soft-green)" stroke="currentColor" stroke-width="2" />
+            <path d="M32 22v24M16 28h12M40 28h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
         </div>
         <h3>Belum ada profil anak</h3>
@@ -293,7 +293,7 @@ const archivedChildren = allChildren.filter((c) => c.archivedAt);
     transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
   }
   .btn-tertiary:hover {
-    background: #cde0d3;
+    background: var(--c-sage);
   }
   .btn-tertiary:active {
     transform: scale(0.98);
