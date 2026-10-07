@@ -69,6 +69,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
 || 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.7/10.8/10.10 tertahan OQ 18 + OQ 14** (halaman audio & privasi belum ada, keputusan produk belum ada) |
 | 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
+| 12 | AI-Assisted Draft Pipeline | 🟡 PARTIAL | 2026-10-07 (run ini) — **12.1** skema batch draf + templat prompt (`docs/AI-DRAFT-SCHEMA.md`, konstanta `AI_DRAFT_SCHEMA_VERSION`/`DRAFT_BATCH_MAX` di `src/lib/activity/ai-draft.ts`); **12.3/12.4** `parseDraftBatch` memvalidasi amplop + tiap draf (divalidasi ulang `parseEditorPayload`), satu draf gagal → batch utuh `400 DRAFT_BATCH_INVALID` "Draf ke-N: …" tanpa tulis apa pun; **12.5** `content_origin` DIPAKSA `AI_DRAFT` (klaim draf tak pernah dibaca); **12.6** `POST /api/reviewer/aktivitas/import` menyimpan batch sebagai `DRAFT` di antrean reviewer; **12.15** kolom `version` sudah ada & +1 saat edit (Phase 11). **12.2 menunggu OQ 26** (provider/model); 12.7–12.13 = proses review manual memakai checklist CONTENT-SPEC di antrean yang sudah ada |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -490,10 +491,12 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    hanya menetapkan alurnya (`AI draft → human review → … → publish`) tanpa
    menyebut provider, model, atau kredensial, dan PRD §19 melarang AI di jalur
    runtime anak. Skema + validasi + penandaan `AI_DRAFT` (12.1, 12.3–12.5)
-   bisa dibuat tanpa provider, tetapi 12.2 ("generate small batches") butuh
-   keputusan: pakai API eksternal (butuh kunci di env, bukan di repo), model
-   lokal, atau impor manual draf dari berkas. Putuskan sebelum membangun
-   jalur generate; jangan menebak.
+   **sudah dibuat 2026-10-07** tanpa provider — lihat
+   `docs/AI-DRAFT-SCHEMA.md` + `POST /api/reviewer/aktivitas/import`
+   (batch draf kini bisa masuk dari sumber mana pun, ditandai `AI_DRAFT`
+   berstatus `DRAFT`). Yang masih menunggu: 12.2 "generate small batches"
+   butuh keputusan — API eksternal (kunci di env, bukan di repo), model
+   lokal, atau cukup impor manual dari berkas. Jangan menebak.
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -1121,6 +1124,56 @@ menutupnya.
    (+2 cek: judul skill tampil **dan** UUID skill tidak bocor; saran tampil
    tanpa enum mentah), `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**.
 
+## Keputusan Phase 12 — skema draf & impor batch (VRD 12.1, 12.3–12.6, 2026-10-07)
+
+Konteks: Phase 11 ✅, sisa fase parsial tertahan keputusan produk; langkah
+aman berikutnya (tertulis di run sebelumnya) = membangun skema + validasi +
+gerbang review **tanpa menebak provider** (OQ 26).
+
+1. **Skema satu pintu (12.1)**: `src/lib/activity/ai-draft.ts` +
+   `docs/AI-DRAFT-SCHEMA.md`. Amplop `{schema_version: 1, model?,
+   prompt_version?, drafts: [1..25]}`; tiap draf memakai field snake_case
+   persis editor (CONTENT-SPEC §7) tetapi lokasi memakai **`area_code` +
+   `skill_code`, bukan UUID** — generator di luar aplikasi tidak tahu UUID,
+   keduanya diambil dari seed migrasi 0003. Dokumen itu juga memuat templat
+   prompt siap tempel (12.1) dan contoh batch.
+2. **Dua lapis validasi (12.3/12.4)**: `parseDraftBatch` (murni, jadi
+   pesan galat bernomor `Draf ke-N: …` bisa diuji) → endpoint lalu
+   memvalidasi ulang tiap draf lewat `parseEditorPayload` (satu pintu
+   validasi editor, VRD 11.2) + `resolveSkillForArea`. **Semua validasi
+   selesai sebelum satu baris pun ditulis** — bila satu draf gagal, batch
+   utuh ditolak (`400 DRAFT_BATCH_INVALID`); tidak ada batch setengah jadi.
+3. **Penandaan tak bisa dipalsukan (12.5)**: `toEditorBody()` selalu
+   menulis `content_origin = 'AI_DRAFT'`; field `content_origin` dari draf
+   tidak pernah dibaca sama sekali, jadi impor tidak bisa dipakai
+   me-launder konten AI sebagai `HUMAN_CREATED`. Diuji langsung
+   (`test/phase12-ai-draft.test.ts`).
+4. **Masuk antrean review, bukan tayang (12.6)**: endpoint
+   `POST /api/reviewer/aktivitas/import` (balik guard reviewer + cek Origin
+   + rate limit `REVIEWER_WRITE` + body maks 512 KB) menyimpan batch sebagai
+   `review_status = 'DRAFT'` — transisi status tetap hanya lewat matriks
+   PRD §7 (VRD 11.11/11.13), dan feed anak menyaring `PUBLISHED`
+   (VRD 11.14) sehingga draf impor tak pernah terlihat anak. Endpoint ini
+   bukan "jalur generate": ia menerima batch JSON dari sumber mana pun.
+5. **Resolusi kode di-cache per batch** (Map per area/skill) supaya 25 draf
+   dengan area sama tidak memicu query ganda; kode tak dikenal = penolakan,
+   bukan fallback diam-diam ke area lain.
+6. **Skipped / tertahan**: VRD 12.2 (generate batch) tetap menunggu OQ 26 —
+   sengaja tidak ada satu pun pemanggil API model di repo. VRD 12.7–12.13
+   adalah langkah pemeriksaan manusia per aktivitas; kerangkanya sudah ada
+   (checklist per aktivitas di CONTENT-SPEC + antrean status Phase 11), jadi
+   tidak dibangun ulang. 12.14 sudah dijaga matriks + trigger (11.13);
+   12.15 memakai kolom `activity.version` yang sudah `+1` saat edit.
+7. **Anti-slop**: tidak ada layar/komponen UI baru (endpoint JSON + modul
+   murni + dokumen) → checklist DESIGN-SYSTEM §12 **dilewati jujur (tanpa
+   layar baru)**; `npx -y @google/design.md lint DESIGN.md` tetap
+   dijalankan: **0 error** (1 info). Tidak ada nilai visual baru di
+   tokens.css.
+8. **Test**: `test/phase12-ai-draft.test.ts` (10 test) — amplop batch, 10
+   kasus draf rusak bernomor, 8 tipe aktivitas lolos skema, penandaan
+   dipaksa, endpoint suka/gagal/gerbang, dan "tidak ada tulis saat batch
+   ditolak". Total suite: **258 passed** (sebelumnya 248).
+
 ## Untuk run berikutnya
 
 - **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
@@ -1174,11 +1227,24 @@ menutupnya.
   `src/lib/progress/strengths.ts`) + saran latihan (label tipe/tingkat +
   empty state) di `/parent/anak/:id`; 248 test, tsc bersih, build hijau,
   SMOKE_LOOP_OK + SMOKE_REVIEWER_OK, lint DESIGN.md 0 error.
-- **Langkah berikutnya: VRD 12.1 — skema/prompt draf aktivitas + validasi
-  (12.3/12.4) + penandaan `AI_DRAFT` (12.5)**. Phase 11 ✅; sisa fase parsial
-  semua tertahan keputusan (10.7/10.8/10.10 → OQ 18 + OQ 14; Phase 8 →
-  OQ 16/17; Phase 9.6 → OQ 23). **VRD 12.2 (generate batch) menunggu OQ 26**
-  (provider/model AI) — bangun skema + validasi + gerbang review dulu,
-  jangan menebak provider.
+- **VRD 12.1/12.3–12.6 selesai 2026-10-07 (run ini)** — skema batch draf +
+  templat prompt (`docs/AI-DRAFT-SCHEMA.md`, modul murni
+  `src/lib/activity/ai-draft.ts`) + `POST /api/reviewer/aktivitas/import`
+  (divalidasi dua lapis, ditolak utuh per batch, ditandai `AI_DRAFT`,
+  disimpan `DRAFT`); 258 test, tsc bersih, build hijau,
+  SMOKE_LOOP_OK + SMOKE_REVIEWER_OK, lint DESIGN.md 0 error.
+- **Langkah berikutnya: VRD 14.4–14.7 — audit gerak & audio** (verifikasi
+  musik OFF default, semua animasi dalam budget 120–700ms,
+  `prefers-reduced-motion` benar-benar menghapus gerak nonesensial, buang
+  gerak terus-menerus yang tidak perlu). Audit murni-verifikasi, tanpa
+  keputusan produk baru; **14.1–14.3 (mute/SFX/suara) tetap menunggu OQ 18
+  + OQ 5**. Setelah itu lanjut **Phase 15 (Privacy & Child Safety review,
+  15.1–15.10)** — juga verifikasi bukan pembangunan fitur.
+  Fase lain masih tertahan keputusan (10.7/10.8/10.10 → OQ 18 + OQ 14;
+  Phase 8 → OQ 16/17; Phase 9.6 → OQ 23; **VRD 12.2 generate batch → OQ 26**
+  — jalur impor `.../import` sudah siap menunggu keputusan provider).
+  **Phase 13 (seed 100 aktivitas)** baru dimulai kalau Arsyad siap
+  me-review: draf bisa masuk lewat endpoint impor, tetapi penerbitan tetap
+  butuh klik reviewer (VRD 13.13) — jangan ditekan otomatis.
 - **Verifikasi ulang tiap run**: `npm test && ./node_modules/.bin/tsc --noEmit && npm run build && node scripts/smoke-loop.mjs && node scripts/smoke-reviewer.mjs` (harus `SMOKE_LOOP_OK` + `SMOKE_REVIEWER_OK`).
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**
