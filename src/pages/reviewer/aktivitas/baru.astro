@@ -1,0 +1,101 @@
+---
+/**
+ * Buat aktivitas baru (VRD 11.2) — layar pertama dari alur editor konten.
+ * Berada di prefiks `/reviewer` → sesi reviewer dicek middleware sebelum
+ * halaman dirender (VRD 11.1).
+ *
+ * Area belajar & skill dibaca dari database (bukan hardcoded) supaya isi
+ * editor selalu mengikuti seed migrasi dan konten mendatang (PRD §4).
+ */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import ActivityEditorForm from "../../../components/ActivityEditorForm.astro";
+import { getDb } from "../../../lib/db/index.ts";
+import {
+  listAllSkillsWithArea,
+  listLearningAreas,
+} from "../../../lib/learning/areas-skills.ts";
+
+const db = await getDb();
+const areas = await listLearningAreas(db);
+const skills = await listAllSkillsWithArea(db);
+---
+
+<BaseLayout title="Buat Aktivitas" mode="parent">
+  <header class="page-header">
+    <h1>Buat Aktivitas</h1>
+    <p class="subtitle">Aktivitas baru selalu tersimpan sebagai draf dan tayang hanya setelah review.</p>
+  </header>
+
+  {skills.length === 0 ? (
+    <section class="empty" role="status">
+      <h2>Belum ada skill</h2>
+      <p>Area belajar belum memiliki skill, jadi aktivitas belum bisa dibuat. Isi skill lewat migrasi konten dahulu.</p>
+      <p><a href="/reviewer">Kembali ke Area Reviewer</a></p>
+    </section>
+  ) : (
+    <ActivityEditorForm mode="create" areas={areas} skills={skills} />
+  )}
+
+  <p class="back-link">
+    <a href="/reviewer">Kembali ke Area Reviewer</a>
+  </p>
+</BaseLayout>
+
+<style>
+  .page-header {
+    margin-bottom: var(--sp-6);
+    text-align: center;
+  }
+
+  .page-header h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+    color: var(--c-deep-green);
+  }
+
+  .subtitle {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-lg);
+    max-width: 52ch;
+    margin: 0 auto;
+  }
+
+  .empty {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-6);
+    text-align: center;
+  }
+
+  .empty h2 {
+    font-size: var(--fs-xl);
+    margin: 0 0 var(--sp-2);
+  }
+
+  .empty p {
+    color: var(--c-muted-ink);
+    margin: 0 0 var(--sp-4);
+  }
+
+  .empty a,
+  .back-link a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-min);
+  }
+
+  .empty a:hover,
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+
+  .back-link {
+    margin-top: var(--sp-5);
+    text-align: center;
+    font-size: var(--fs-sm);
+  }
+</style>

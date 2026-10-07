@@ -23,7 +23,23 @@ export const REVIEWER_PROTECTED_PREFIXES = [
   "/api/reviewer",
 ] as const;
 
+/**
+ * Rute publik di bawah prefiks terlindungi — tanpa daftar ini halaman login
+ * me-redirect ke dirinya sendiri dan endpoint login selalu 401, sehingga
+ * tidak ada cara masuk sama sekali (ditemukan saat QA E2E VRD 11.2).
+ */
+export const REVIEWER_PUBLIC_PATHS = [
+  "/reviewer/login",
+  "/api/reviewer/auth/login",
+] as const;
+
+export function isReviewerPublicPath(pathname: string): boolean {
+  const path = pathname.split("?")[0].split("#")[0].replace(/\/$/, "");
+  return REVIEWER_PUBLIC_PATHS.some((publicPath) => path === publicPath);
+}
+
 export function isReviewerProtectedPath(pathname: string): boolean {
+  if (isReviewerPublicPath(pathname)) return false;
   const path = pathname.split("?")[0].split("#")[0];
   return REVIEWER_PROTECTED_PREFIXES.some(
     (prefix) => path === prefix || path.startsWith(`${prefix}/`),

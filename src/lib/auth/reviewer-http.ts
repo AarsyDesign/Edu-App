@@ -17,9 +17,16 @@ export interface JsonBody {
   [key: string]: unknown;
 }
 
-export async function readJsonBody(request: Request): Promise<JsonBody | null> {
+/**
+ * Baca body JSON. `maxBytes` boleh dinaikkan untuk endpoint tertentu (mis.
+ * editor aktivitas yang membawa penjelasan + beberapa sumber) selama tetap
+ * dibatasi — nilainya diperiksa dua kali: header `content-length` dan isi
+ * body, supaya header yang di-spoof tidak meloloskan body raksasa.
+ */
+export async function readJsonBody(request: Request, maxBytes = MAX_JSON_BYTES): Promise<JsonBody | null> {
+  const limit = Math.max(MAX_JSON_BYTES, maxBytes);
   const declared = request.headers.get("content-length");
-  if (declared !== null && Number(declared) > MAX_JSON_BYTES) return null;
+  if (declared !== null && Number(declared) > limit) return null;
 
   let text: string;
   try {
@@ -27,7 +34,7 @@ export async function readJsonBody(request: Request): Promise<JsonBody | null> {
   } catch {
     return null;
   }
-  if (text.length === 0 || text.length > MAX_JSON_BYTES) return null;
+  if (text.length === 0 || text.length > limit) return null;
 
   try {
     const parsed: unknown = JSON.parse(text);

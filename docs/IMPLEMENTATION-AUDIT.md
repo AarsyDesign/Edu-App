@@ -68,7 +68,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
 || 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-06 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) di bawah 3 fakta — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4–10.5 menyusul** (kekuatan, saran latihan), 10.6 sudah ada grid pengaturan |
-| 11 | Content Management | 🟡 PARTIAL | 2026-10-06 (commit `94c890c`) — **11.1 batasan autentikasi admin/konten** selesai: migrasi 0004 (reviewer_account, reviewer_session terpisah dari parent_account per PRD §13), middleware guard reviewer untuk `/reviewer` & `/api/reviewer`, halaman login `/reviewer/login`, endpoint `POST /api/reviewer/auth/login` (rate limit terpisah, CSRF, timing-safe), 187 test hijau, tsc/build/lint bersih; **11.2–11.14 menyusul** (editor aktivitas, review workflow, publish gate) |
+| 11 | Content Management | 🟡 PARTIAL | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 sebagian** (status tampil sebagai teks, transisi belum ada); 11.12–11.14 menyusul |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -465,6 +465,21 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    (c) tunda sampai konten Phase 13 memberi sebaran yang wajar.
    Rekomendasi sementara: **(b)** — bukti nyata dari riwayat percobaan, tanpa
    ambang keakuratan apa pun. Konfirmasi sebelum dieksekusi.
+
+24. **Konten terbit boleh diedit? (status terkunci, 2026-10-07)**: PRD/VRD tidak
+   memutuskan apakah aktivitas `PUBLISHED` boleh diubah langsung oleh reviewer.
+   Implementasi sementara (11.2): editor hanya menerima `DRAFT`, `FLAGGED`,
+   `UNPUBLISHED`; status lain → 409 `REVIEW_STATUS_LOCKED`, jadi tidak ada jalur
+   melewati persetujuan. Bila konten terbit memang harus bisa diperbaiki cepat,
+   jalurnya tetap: tarik ke `UNPUBLISHED` (11.11) → edit → review lagi.
+   Konfirmasi atau ubah.
+
+25. **Bentuk field "source" (VRD 11.9)**: VRD menyebut "field `source`" (tunggal,
+   satu layar), sedangkan migrasi 0001 punya tabel `content_source` multi-baris
+   (title, type, reference, methodology, disputed). Implementasi memakai tabel
+   multi-baris dengan maksimal 5 sumber per aktivitas karena jalur 2 pembacaan
+   konten (`content.ts`) memang membaca tabel itu. Bila yang dikehendaki cukup
+   satu baris sederhana, permudah UI-nya.
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -889,6 +904,49 @@ Konteks: mesin ringkasan 9.8 sudah ada tanpa UI; langkah aman menunjuk
    riwayat nyata (2 jawaban/1 benar), tanpa kata lomba, id asing →
    `/parent`, anak kedua → empty state).
 
+## Keputusan Phase 11 — activity editor (VRD 11.2–11.11, 2026-10-07)
+
+- **Tiga layar baru**: `/reviewer/aktivitas` (daftar + saringan area/status +
+  paginasi + keadaan kosong), `/reviewer/aktivitas/baru` (11.2 buat),
+  `/reviewer/aktivitas/:id` (11.2 edit, isi terisi ulang dari payload). Semua
+  berada di prefiks `/reviewer` (guard 11.1) dan tautan "Kelola aktivitas" di
+  dashboard kini tidak lagi mengarah ke tautan mati.
+- **Satu pintu validasi (11.4–11.10)**: `src/lib/activity/reviewer.ts` →
+  `parseEditorPayload` dipakai bersama oleh POST dan PUT — prompt, tipe
+  CONTENT-SPEC, usia 3–7, difficulty 1–3, `correct_answer` valid per tipe,
+  `skill_id` wajib milik `learning_area_id` (`resolveSkillForArea`), asal konten
+  dari enum, sumber maks 5 baris.
+- **Payload = `ActivityData` utuh di `correct_answer`** (konsisten CONTENT-SPEC
+  §7 / `buildActivityData`), dan baris `activity_option` diturunkan server oleh
+  `deriveOptionRows` — pembaca (`isValidActivityData`) selalu mendapat baris
+  opsi yang valid untuk kedelapan tipe; jalur "sumbat `activity_option`" tidak
+  dipakai untuk konten baru.
+- **Gerbang status (11.11, setengah bagian)**: editor menerima `DRAFT`,
+  `FLAGGED`, `UNPUBLISHED` saja; status lain → 409 `REVIEW_STATUS_LOCKED`, jadi
+  konten terbit tidak bisa disunting sambil melewati persetujuan. Layar
+  menampilkan status sebagai teks (bukan warna saja). Transisi status
+  (approve/reject/unpublish) masih menyusul.
+- **Tidak ada catatan `content_review` saat sekadar menyimpan** (constraint
+  `from_status ≠ to_status`) — jejak review hanya untuk transisi status.
+- **Perbaikan gerbang 11.1**: `/reviewer/login` dan `/api/reviewer/auth/login`
+  dikecualikan dari guard (`isReviewerPublicPath`) — sebelumnya halaman login
+  redirect ke dirinya sendiri (303) dan endpoint login selalu 401
+  `UNAUTHENTICATED`, artinya reviewer tidak bisa masuk sama sekali. Ditemukan
+  lewat QA E2E run ini.
+- **Rate limit tulis terpisah**: `REVIEWER_WRITE` 60/15 menit (env
+  `RATE_LIMIT_REVIEWER_WRITE_MAX`) — login tetap 15.
+- **Logika UI diuji**: penyusunan payload dipindah ke
+  `src/lib/activity/editor-payload.ts` (fungsi murni, 11 test) sehingga skrip
+  formulir hanya perekat DOM; garis merah anti-slop dipertahankan (token saja,
+  tanpa heksa/durasi ms hardcoded, `prefers-reduced-motion`, badge status
+  berlabel teks).
+- **Verifikasi**: 216 test hijau, `tsc --noEmit` bersih, `npm run build` hijau,
+  `npx -y @google/design.md lint DESIGN.md` **0 error / 0 warning**, QA E2E HTTP
+  24/24 (gerbang sesi + login publik, 8 panel ter-render, buka→ubah→hapus,
+  tautan area dashboard). **Belum diuji di browser sungguhan** — server preview
+  tidak terjangkau dari browser sesi QA, jadi cek 390px/tablet & reduced-motion
+  baru sebatas pemeriksaan kode.
+
 ## Untuk run berikutnya
 
 - **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
@@ -913,6 +971,12 @@ Konteks: mesin ringkasan 9.8 sudah ada tanpa UI; langkah aman menunjuk
   Arsyad soal titik masuk, **dan** sampai Phase 13 menanam konten kolam
   baseline <5 aktivitas (POST menolak) sehingga layarnya akan selalu buntu.
   Jangan bangun layar mati — tunda sampai salah satu syarat terpenuhi.
-- **Langkah aman berikutnya: VRD 11.2 — activity editor** di `/reviewer/aktivitas/baru` dan `/reviewer/aktivitas/:id/edit`: formulir buat/ubah aktivitas (prompt, tipe interaksi, opsi, jawaban benar, penjelasan, learning area, usia, kesukaran, asal konten, status review). Item ini **menyentuh UI → checklist anti-slop DESIGN-SYSTEM §12 wajib**, plus lint DESIGN.md 0 error dan QA E2E eksploratif 390px/768px.
+- **VRD 11.2–11.10 selesai 2026-10-07 (run ini)** — editor aktivitas (daftar,
+  buat, edit) + API + gerbang status + perbaikan login reviewer. 216 test, tsc
+  bersih, build hijau, lint DESIGN.md 0 error, QA E2E HTTP 24/24.
+- **Langkah berikutnya: VRD 11.11 — transisi status review** (approve /
+  request-revision / reject / unpublish): endpoint + riwayat `content_review`
+  + tampilan riwayat di layar detail, **baru** 11.12 preview sebagai anak.
+  Pertimbangan anti-slop: transisi status jangan hanya warna tombol.
 - **Verifikasi ulang tiap run**: `npm test && npx tsc --noEmit && npm run build && node scripts/smoke-loop.mjs` (harus `SMOKE_LOOP_OK`).
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**

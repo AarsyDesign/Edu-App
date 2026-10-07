@@ -49,6 +49,8 @@ export const RATE_LIMIT_DEFAULTS = {
   registerMax: 15,
   reviewerLoginMax: 15,
   reviewerRegisterMax: 15,
+  /** Tulis konten (buat/ubah aktivitas) — kuota longgar dari login. */
+  reviewerWriteMax: 60,
 } as const;
 
 export function rateLimitWindowMs(): number {
@@ -79,6 +81,16 @@ export function reviewerLoginRateRule(): RateLimitRule {
 export function reviewerRegisterRateRule(): RateLimitRule {
   return {
     max: envInt("RATE_LIMIT_REVIEWER_REGISTER_MAX", RATE_LIMIT_DEFAULTS.reviewerRegisterMax),
+    windowMs: rateLimitWindowMs(),
+  };
+}
+
+/** Kuota tulis konten reviewer (buat/ubah aktivitas, VRD 11.2).
+ *  Terpisah dari login supaya menulis konten tidak menghabiskan kuota
+ *  autentikasi dan sebaliknya. */
+export function reviewerWriteRateRule(): RateLimitRule {
+  return {
+    max: envInt("RATE_LIMIT_REVIEWER_WRITE_MAX", RATE_LIMIT_DEFAULTS.reviewerWriteMax),
     windowMs: rateLimitWindowMs(),
   };
 }
@@ -175,6 +187,7 @@ export const RATE_LIMIT_KEYS = {
   REGISTER: "auth:register",
   REVIEWER_LOGIN: "reviewer:login",
   REVIEWER_REGISTER: "reviewer:register",
+  REVIEWER_WRITE: "reviewer:write",
 } as const;
 
 /** Cek rate limit untuk konteks request (Astro API context). */
@@ -199,6 +212,9 @@ export function checkRateLimit(
       break;
     case RATE_LIMIT_KEYS.REVIEWER_REGISTER:
       rule = reviewerRegisterRateRule();
+      break;
+    case RATE_LIMIT_KEYS.REVIEWER_WRITE:
+      rule = reviewerWriteRateRule();
       break;
     default:
       rule = { max: 100, windowMs: 60_000 };

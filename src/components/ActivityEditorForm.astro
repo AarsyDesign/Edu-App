@@ -1,0 +1,1171 @@
+---
+/**
+ * Formulir editor aktivitas (VRD 11.2) — dipakai `/reviewer/aktivitas/baru`
+ * (mode="create") dan `/reviewer/aktivitas/[id]` (mode="edit").
+ *
+ * Satu formulir menampung seluruh bagian yang VRD Phase 11 minta per item:
+ * pemilih area belajar (11.3), rentang usia (11.4), kesukaran (11.5), tipe
+ * interaksi (11.6), editor opsi/jawaban per tipe (11.7), penjelasan (11.8),
+ * sumber rujukan (11.9, tabel `content_source`), asal konten (11.10), dan
+ * status review yang ditampilkan apa adanya (11.11 — transisi status tidak
+ * ada di halaman ini).
+ *
+ * Pengiriman: JSON ke `/api/reviewer/aktivitas` (POST buat, PUT ubah) — semua
+ * validasi & gerbang tetap di server. Tanpa JavaScript, browser mengirim POST
+ * form-urlencoded ke endpoint yang sama dan menerima galat aman, jadi tidak
+ * ada jalur tulis yang dilewati diam-diam (pola sama dengan ChildProfileForm).
+ *
+ * Nilai visual hanya lewat token `tokens.css`; tidak ada warna/jarak/ukuran
+ * hardcoded di komponen ini.
+ */
+import { getActivityTypeLabel, getDifficultyLabel } from "../lib/activity/labels.ts";
+import {
+  ACTIVITY_TYPES,
+  CONTENT_ORIGINS,
+  getContentOriginLabel,
+  getReviewStatusLabel,
+} from "../lib/activity/reviewer.ts";
+import type { LearningArea, Skill } from "../lib/learning/areas-skills.ts";
+import type { ActivityData } from "../lib/activity/domain.ts";
+
+interface SourceInitial {
+  title: string;
+  source_type: string;
+  reference_detail: string;
+  methodology: string | null;
+  is_disputed: boolean;
+}
+
+interface InitialActivity {
+  id: string;
+  prompt: string;
+  interactionType: string;
+  learningAreaId: string;
+  skillId: string;
+  targetAgeMin: number;
+  targetAgeMax: number;
+  difficulty: number;
+  correctAnswer: ActivityData;
+  explanation: string | null;
+  contentOrigin: string;
+  sources: SourceInitial[];
+  reviewStatus: string;
+  version: number;
+}
+
+interface Props {
+  mode: "create" | "edit";
+  areas: LearningArea[];
+  skills: Skill[];
+  initial?: InitialActivity;
+}
+
+const { mode, areas, skills, initial } = Astro.props;
+if (mode === "edit" && !initial) {
+  throw new Error('ActivityEditorForm mode="edit" membutuhkan props initial');
+}
+
+const endpoint =
+  mode === "edit" && initial ? `/api/reviewer/aktivitas/${initial.id}` : "/api/reviewer/aktivitas";
+const ages = [3, 4, 5, 6, 7];
+const type = initial?.interactionType ?? "TAP_ANSWER";
+
+/** Bentuk baris per tipe untuk keadaan awal (edit mengisi dari payload). */
+type RowData = Record<string, string | boolean | undefined>;
+
+function rowsOf<T extends Record<string, unknown>>(
+  items: T[] | undefined,
+  fallback: () => RowData,
+  map: (item: T, index: number) => RowData,
+): RowData[] {
+  if (!items || items.length === 0) return [fallback(), fallback()];
+  return items.map(map);
+}
+
+const data = initial?.correctAnswer as unknown as Record<string, unknown> | undefined;
+
+const tapRows = rowsOf(
+  data && Array.isArray(data.items) ? (data.items as Array<Record<string, unknown>>) : undefined,
+  () => ({ label: "", value: "", correct: false }),
+  (item, i) => ({
+    label: String(item.label ?? ""),
+    value: typeof item.value === "string" ? item.value : "",
+    correct: item.isCorrect === true || (i === 0 && item.isCorrect === undefined),
+  }),
+);
+
+const mcRows = rowsOf(
+  data && Array.isArray(data.options) ? (data.options as Array<Record<string, unknown>>) : undefined,
+  () => ({ label: "", correct: false }),
+  (item, i) => ({
+    label: String(item.label ?? ""),
+    correct: item.isCorrect === true || (i === 0 && item.isCorrect === undefined),
+  }),
+);
+
+const colorRows = rowsOf(
+  data && Array.isArray(data.options) ? (data.options as Array<Record<string, unknown>>) : undefined,
+  () => ({ colorName: "", colorValue: "#174a3a", correct: false }),
+  (item, i) => ({
+    colorName: String(item.colorName ?? ""),
+    colorValue: typeof item.colorValue === "string" ? item.colorValue : "#174a3a",
+    correct: item.isCorrect === true || (i === 0 && item.isCorrect === undefined),
+  }),
+);
+
+const shapeRows = rowsOf(
+  data && Array.isArray(data.options) ? (data.options as Array<Record<string, unknown>>) : undefined,
+  () => ({ shapeName: "", shapeKey: "circle", correct: false }),
+  (item, i) => ({
+    shapeName: String(item.shapeName ?? ""),
+    shapeKey: typeof item.shapeKey === "string" ? item.shapeKey : "circle",
+    correct: item.isCorrect === true || (i === 0 && item.isCorrect === undefined),
+  }),
+);
+
+const countRows = rowsOf(
+  data && Array.isArray(data.objects) ? (data.objects as Array<Record<string, unknown>>) : undefined,
+  () => ({ visualKey: "", count: "" }),
+  (item) => ({
+    visualKey: String(item.visualKey ?? ""),
+    count: typeof item.count === "number" ? String(item.count) : "",
+  }),
+);
+
+const seqRows = rowsOf(
+  data && Array.isArray(data.items) ? (data.items as Array<Record<string, unknown>>) : undefined,
+  () => ({ label: "", visualKey: "" }),
+  (item) => ({
+    label: String(item.label ?? ""),
+    visualKey: typeof item.visualKey === "string" ? item.visualKey : "",
+  }),
+);
+
+const matchRows = (() => {
+  if (!data || !Array.isArray(data.left) || !Array.isArray(data.right)) {
+    return [
+      { left: "", right: "" },
+      { left: "", right: "" },
+    ];
+  }
+  const left = data.left as Array<Record<string, unknown>>;
+  const right = data.right as Array<Record<string, unknown>>;
+  const length = Math.max(left.length, right.length);
+  const pairs: RowData[] = [];
+  for (let i = 0; i < length; i++) {
+    pairs.push({ left: String(left[i]?.label ?? ""), right: String(right[i]?.label ?? "") });
+  }
+  return pairs.length > 0 ? pairs : [{ left: "", right: "" }, { left: "", right: "" }];
+})();
+
+const trueFalseCorrect = data && typeof data.correctAnswer === "boolean"
+  ? (data.correctAnswer as boolean)
+  : null;
+
+const sources = initial?.sources ?? [];
+const sourceRows: SourceInitial[] =
+  sources.length > 0
+    ? sources
+    : [
+        {
+          title: "",
+          source_type: "",
+          reference_detail: "",
+          methodology: null,
+          is_disputed: false,
+        },
+      ];
+
+const shapeKeys = [
+  { key: "circle", label: "Lingkaran" },
+  { key: "square", label: "Persegi" },
+  { key: "triangle", label: "Segitiga" },
+];
+
+const statusLabel = initial ? getReviewStatusLabel(initial.reviewStatus) : getReviewStatusLabel("DRAFT");
+const json = (value: unknown) =>
+  JSON.stringify(value).replace(/</g, "\\u003c");
+---
+
+<form
+  class="editor-form"
+  data-activity-editor
+  data-mode={mode}
+  data-endpoint={endpoint}
+  data-skills={json(
+    skills.map((s) => ({ skillId: s.skillId, learningAreaId: s.learningAreaId, title: s.title })),
+  )}
+  method="post"
+  action={endpoint}
+>
+  <div class="field">
+    <label for="prompt">Pertanyaan</label>
+    <textarea
+      id="prompt"
+      name="prompt"
+      data-counter-for="prompt"
+      required
+      maxlength="500"
+      rows="3"
+      placeholder="Mis. Mana yang berwarna merah?">{initial?.prompt ?? ""}</textarea>
+    <p class="hint"><span data-counter="prompt">0</span>/500 karakter — kalimat pendek untuk anak 3–7 tahun.</p>
+  </div>
+
+  <div class="field-grid">
+    <div class="field">
+      <label for="area">Area belajar <span class="req">(wajib)</span></label>
+      <select id="area" name="area" data-area-select required>
+        {areas.map((area) => (
+          <option value={area.areaId} selected={initial?.learningAreaId === area.areaId}>
+            {area.title}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="skill">Skill <span class="req">(wajib)</span></label>
+      <select id="skill" name="skill" data-skill-select required>
+        {skills.map((skill) => (
+          <option
+            value={skill.skillId}
+            data-area={skill.learningAreaId}
+            selected={initial?.skillId === skill.skillId}
+          >
+            {skill.title}
+          </option>
+        ))}
+      </select>
+      <p class="hint">Daftar skill mengikuti area yang dipilih.</p>
+    </div>
+  </div>
+
+  <div class="field-grid">
+    <div class="field">
+      <label for="age-min">Usia terkecil</label>
+      <select id="age-min" name="age_min" required>
+        {ages.map((age) => (
+          <option value={age} selected={(initial?.targetAgeMin ?? 3) === age}>{age} tahun</option>
+        ))}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="age-max">Usia terbesar</label>
+      <select id="age-max" name="age_max" required>
+        {ages.map((age) => (
+          <option value={age} selected={(initial?.targetAgeMax ?? 7) === age}>{age} tahun</option>
+        ))}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="difficulty">Kesukaran</label>
+      <select id="difficulty" name="difficulty" required>
+        {[1, 2, 3].map((level) => (
+          <option value={level} selected={(initial?.difficulty ?? 1) === level}>
+            {getDifficultyLabel(level)}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="interaction-type">Tipe interaksi</label>
+      <select id="interaction-type" name="interaction_type" data-type-select required>
+        {ACTIVITY_TYPES.map((activityType) => (
+          <option value={activityType} selected={type === activityType}>
+            {getActivityTypeLabel(activityType)}
+          </option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  <!-- ================= Opsi & jawaban per tipe (11.7) ================= -->
+  <section class="answer-section" aria-label="Opsi dan jawaban benar">
+    <h2>Opsi dan jawaban</h2>
+    <p class="hint">Isi mengikuti tipe interaksi yang dipilih di atas.</p>
+
+    <fieldset class="type-panel" data-type-panel="TAP_ANSWER" hidden={type !== "TAP_ANSWER"}>
+      <legend>Tukar Jawaban — satu opsi benar</legend>
+      <div class="rows" data-rows data-min="2">
+        {tapRows.map((row, index) => (
+          <div class="opt-row" data-row>
+            <input type="text" data-f="label" value={String(row.label)} maxlength="120"
+              placeholder="Teks opsi" aria-label={`Opsi ${index + 1}`} />
+            <input type="text" data-f="value" value={String(row.value ?? "")} maxlength="60"
+              placeholder="Nilai (opsional)" aria-label={`Opsi ${index + 1}: nilai`} />
+            <label class="mark">
+              <input type="radio" name="correct-tap" data-f="correct" checked={row.correct === true} />
+              <span>Benar</span>
+            </label>
+            <button type="button" class="row-btn" data-action="remove" aria-label={`Hapus opsi ${index + 1}`}>Hapus</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" class="row-btn add" data-action="add">+ Tambah opsi</button>
+    </fieldset>
+
+    <fieldset class="type-panel" data-type-panel="MULTIPLE_CHOICE" hidden={type !== "MULTIPLE_CHOICE"}>
+      <legend>Pilihan Ganda — boleh lebih dari satu jawaban benar</legend>
+      <div class="rows" data-rows data-min="2">
+        {mcRows.map((row, index) => (
+          <div class="opt-row" data-row>
+            <input type="text" data-f="label" value={String(row.label)} maxlength="120"
+              placeholder="Teks opsi" aria-label={`Opsi ${index + 1}`} />
+            <label class="mark">
+              <input type="checkbox" data-f="correct" checked={row.correct === true} />
+              <span>Benar</span>
+            </label>
+            <button type="button" class="row-btn" data-action="remove" aria-label={`Hapus opsi ${index + 1}`}>Hapus</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" class="row-btn add" data-action="add">+ Tambah opsi</button>
+    </fieldset>
+
+    <fieldset class="type-panel" data-type-panel="TRUE_FALSE" hidden={type !== "TRUE_FALSE"}>
+      <legend>Benar/Salah — jawaban benar untuk pernyataan di kolom Pertanyaan</legend>
+      <label class="mark wide">
+        <input type="radio" name="correct-tf" data-tf="true" checked={trueFalseCorrect === true} />
+        <span>Pernyataan benar</span>
+      </label>
+      <label class="mark wide">
+        <input type="radio" name="correct-tf" data-tf="false" checked={trueFalseCorrect === false} />
+        <span>Pernyataan salah</span>
+      </label>
+    </fieldset>
+
+    <fieldset class="type-panel" data-type-panel="COUNT_OBJECTS" hidden={type !== "COUNT_OBJECTS"}>
+      <legend>Hitung Benda — jumlah total dihitung otomatis</legend>
+      <div class="rows" data-rows data-min="1">
+        {countRows.map((row, index) => (
+          <div class="opt-row" data-row>
+            <input type="text" data-f="visualKey" value={String(row.visualKey)} maxlength="40"
+              placeholder="Kunci visual (mis. apel)" aria-label={`Kelompok ${index + 1}: kunci visual`} />
+            <input type="number" data-f="count" value={String(row.count)} min="0" max="99"
+              inputmode="numeric" placeholder="Jumlah" aria-label={`Kelompok ${index + 1}: jumlah`} />
+            <button type="button" class="row-btn" data-action="remove" aria-label={`Hapus kelompok ${index + 1}`}>Hapus</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" class="row-btn add" data-action="add">+ Tambah kelompok</button>
+      <p class="hint">Jumlah jawaban benar: <strong data-count-total>0</strong></p>
+    </fieldset>
+
+    <fieldset class="type-panel" data-type-panel="SEQUENCE" hidden={type !== "SEQUENCE"}>
+      <legend>Urutkan — urutan baris = urutan benar (atas = pertama)</legend>
+      <div class="rows" data-rows data-min="2">
+        {seqRows.map((row, index) => (
+          <div class="opt-row" data-row>
+            <span class="order" aria-hidden="true">{index + 1}.</span>
+            <input type="text" data-f="label" value={String(row.label)} maxlength="120"
+              placeholder="Teks langkah" aria-label={`Langkah ${index + 1}`} />
+            <button type="button" class="row-btn" data-action="up" aria-label={`Naikkan langkah ${index + 1}`}>↑</button>
+            <button type="button" class="row-btn" data-action="down" aria-label={`Turunkan langkah ${index + 1}`}>↓</button>
+            <button type="button" class="row-btn" data-action="remove" aria-label={`Hapus langkah ${index + 1}`}>Hapus</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" class="row-btn add" data-action="add">+ Tambah langkah</button>
+    </fieldset>
+
+    <fieldset class="type-panel" data-type-panel="MATCH" hidden={type !== "MATCH"}>
+      <legend>Cocokkan — satu baris = satu pasangan kiri dan kanan</legend>
+      <div class="rows" data-rows data-min="2">
+        {matchRows.map((row, index) => (
+          <div class="opt-row pair" data-row>
+            <input type="text" data-f="left" value={String(row.left)} maxlength="120"
+              placeholder="Sisi kiri" aria-label={`Pasangan ${index + 1}: kiri`} />
+            <input type="text" data-f="right" value={String(row.right)} maxlength="120"
+              placeholder="Sisi kanan" aria-label={`Pasangan ${index + 1}: kanan`} />
+            <button type="button" class="row-btn" data-action="remove" aria-label={`Hapus pasangan ${index + 1}`}>Hapus</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" class="row-btn add" data-action="add">+ Tambah pasangan</button>
+    </fieldset>
+
+    <fieldset class="type-panel" data-type-panel="IDENTIFY_COLOR" hidden={type !== "IDENTIFY_COLOR"}>
+      <legend>Kenali Warna — satu opsi benar</legend>
+      <div class="rows" data-rows data-min="2">
+        {colorRows.map((row, index) => (
+          <div class="opt-row" data-row>
+            <input type="text" data-f="colorName" value={String(row.colorName)} maxlength="40"
+              placeholder="Nama warna (mis. merah)" aria-label={`Warna ${index + 1}: nama`} />
+            <input type="color" data-f="colorValue" value={String(row.colorValue)}
+              aria-label={`Warna ${index + 1}: kunci warna`} />
+            <label class="mark">
+              <input type="radio" name="correct-color" data-f="correct" checked={row.correct === true} />
+              <span>Benar</span>
+            </label>
+            <button type="button" class="row-btn" data-action="remove" aria-label={`Hapus warna ${index + 1}`}>Hapus</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" class="row-btn add" data-action="add">+ Tambah warna</button>
+    </fieldset>
+
+    <fieldset class="type-panel" data-type-panel="IDENTIFY_SHAPE" hidden={type !== "IDENTIFY_SHAPE"}>
+      <legend>Kenali Bentuk — satu opsi benar</legend>
+      <div class="rows" data-rows data-min="2">
+        {shapeRows.map((row, index) => (
+          <div class="opt-row" data-row>
+            <input type="text" data-f="shapeName" value={String(row.shapeName)} maxlength="40"
+              placeholder="Nama bentuk (mis. lingkaran)" aria-label={`Bentuk ${index + 1}: nama`} />
+            <select data-f="shapeKey" aria-label={`Bentuk ${index + 1}: gambar`}>
+              {shapeKeys.map((shape) => (
+                <option value={shape.key} selected={row.shapeKey === shape.key}>{shape.label}</option>
+              ))}
+            </select>
+            <label class="mark">
+              <input type="radio" name="correct-shape" data-f="correct" checked={row.correct === true} />
+              <span>Benar</span>
+            </label>
+            <button type="button" class="row-btn" data-action="remove" aria-label={`Hapus bentuk ${index + 1}`}>Hapus</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" class="row-btn add" data-action="add">+ Tambah bentuk</button>
+    </fieldset>
+  </section>
+
+  <!-- ================= Penjelasan (11.8) ================= -->
+  <div class="field">
+    <label for="explanation">Penjelasan <span class="opt">(opsional)</span></label>
+    <textarea
+      id="explanation"
+      name="explanation"
+      data-counter-for="explanation"
+      maxlength="1000"
+      rows="3"
+      placeholder="Umpan balik singkat untuk anak, mis. “Betul, apel berwarna merah.”">{initial?.explanation ?? ""}</textarea>
+    <p class="hint"><span data-counter="explanation">0</span>/1000 karakter — ditampilkan setelah anak menjawab.</p>
+  </div>
+
+  <!-- ================= Sumber rujukan (11.9) ================= -->
+  <section class="field sources" aria-label="Sumber rujukan">
+    <h2>Sumber rujukan <span class="opt">(opsional)</span></h2>
+    <p class="hint">
+      Wajib diisi bila pertanyaan memuat klaim faktual atau keagamaan (PRD §7).
+      Tandai “ada perbedaan pendapat” bila hal itu bukan kesepakatan tunggal.
+    </p>
+    <div class="rows" data-source-rows>
+      {sourceRows.map((source, index) => (
+        <div class="source-row" data-source-row>
+          <div class="field">
+            <label for={`source-title-${index}`}>Judul sumber</label>
+            <input id={`source-title-${index}`} type="text" data-sf="title" value={source.title}
+              maxlength="300" placeholder="Mis. Modul belajar anak usia dini" />
+          </div>
+          <div class="field">
+            <label for={`source-type-${index}`}>Jenis sumber</label>
+            <input id={`source-type-${index}`} type="text" data-sf="sourceType" value={source.source_type}
+              maxlength="60" placeholder="Mis. Buku, kurikulum, rujukan keagamaan" />
+          </div>
+          <div class="field">
+            <label for={`source-detail-${index}`}>Rujukan</label>
+            <textarea id={`source-detail-${index}`} data-sf="referenceDetail" rows="2" maxlength="2000"
+              placeholder="Penulis/lembaga, tahun, bagian atau halaman">{source.reference_detail}</textarea>
+          </div>
+          <div class="field">
+            <label for={`source-method-${index}`}>Cara meninjau <span class="opt">(opsional)</span></label>
+            <textarea id={`source-method-${index}`} data-sf="methodology" rows="2" maxlength="2000"
+              placeholder="Mis. Diperiksa oleh dua reviewer">{source.methodology ?? ""}</textarea>
+          </div>
+          <label class="mark wide">
+            <input type="checkbox" data-sf="isDisputed" checked={source.is_disputed} />
+            <span>Ada perbedaan pendapat</span>
+          </label>
+          <button type="button" class="row-btn" data-action="remove-source" aria-label={`Hapus sumber ${index + 1}`}>Hapus sumber</button>
+        </div>
+      ))}
+    </div>
+    <button type="button" class="row-btn add" data-action="add-source">+ Tambah sumber</button>
+  </section>
+
+  <!-- ================= Asal konten (11.10) & status (11.11) ================= -->
+  <div class="field-grid">
+    <div class="field">
+      <label for="content-origin">Asal konten</label>
+      <select id="content-origin" name="content_origin">
+        {CONTENT_ORIGINS.map((origin) => (
+          <option value={origin} selected={(initial?.contentOrigin ?? "HUMAN_CREATED") === origin}>
+            {getContentOriginLabel(origin)}
+          </option>
+        ))}
+      </select>
+      <p class="hint">Draf AI tetap melewati review orang sebelum tayang.</p>
+    </div>
+
+    <div class="field">
+      <span class="static-label" id="review-status-label">Status review</span>
+      <p class="status-static" role="status" aria-labelledby="review-status-label" data-review-status>
+        {statusLabel}{initial ? ` · versi ${initial.version}` : ""}
+      </p>
+      <p class="hint">
+        {mode === "create"
+          ? "Aktivitas baru selalu lahir sebagai draf."
+          : "Perubahan status hanya lewat alur review, bukan di halaman ini."}
+      </p>
+    </div>
+  </div>
+
+  <p class="status" data-editor-status role="status" aria-live="polite"></p>
+
+  <div class="actions">
+    <button class="btn-primary" type="submit">
+      {mode === "edit" ? "Simpan Perubahan" : "Simpan sebagai Draf"}
+    </button>
+    <a class="btn-secondary" href="/reviewer/aktivitas">Batal — ke daftar aktivitas</a>
+  </div>
+</form>
+
+<script>
+  import {
+    buildActivityPayload,
+    validateActivityPayload,
+    type EditorRowData,
+  } from "../lib/activity/editor-payload.ts";
+  import type { ActivityType } from "../lib/activity/domain.ts";
+  /**
+   * Perilaku editor: filter skill per area, tampilkan panel tipe interaksi,
+   * kelola baris opsi/sumber, hitung total hitungan, lalu kirim JSON ke API.
+   * Status sibuk/galat/sukses selalu ditulis sebagai teks pada live region
+   * (status tidak disampaikan lewat warna saja).
+   */
+  const form = document.querySelector<HTMLFormElement>("form[data-activity-editor]");
+  const status = form?.querySelector<HTMLElement>("[data-editor-status]");
+  const submit = form?.querySelector<HTMLButtonElement>("button[type=submit]");
+
+  function setStatus(message: string, tone: "busy" | "ok" | "error") {
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.tone = tone;
+  }
+
+  // ---- skill mengikuti area -------------------------------------------------
+  const skillSelect = form?.querySelector<HTMLSelectElement>("[data-skill-select]");
+  const areaSelect = form?.querySelector<HTMLSelectElement>("[data-area-select]");
+  let skills: Array<{ skillId: string; learningAreaId: string; title: string }> = [];
+  try {
+    skills = JSON.parse(form?.dataset.skills ?? "[]");
+  } catch {
+    skills = [];
+  }
+
+  function refreshSkills() {
+    if (!skillSelect || !areaSelect) return;
+    const areaId = areaSelect.value;
+    const current = skillSelect.value;
+    skillSelect.innerHTML = "";
+    for (const skill of skills) {
+      if (skill.learningAreaId !== areaId) continue;
+      const option = document.createElement("option");
+      option.value = skill.skillId;
+      option.textContent = skill.title;
+      skillSelect.append(option);
+    }
+    if (skillSelect.querySelector(`option[value="${CSS.escape(current)}"]`)) {
+      skillSelect.value = current;
+    }
+    skillSelect.disabled = skillSelect.options.length === 0;
+  }
+
+  areaSelect?.addEventListener("change", refreshSkills);
+  refreshSkills();
+
+  // ---- panel tipe interaksi ------------------------------------------------
+  const typeSelect = form?.querySelector<HTMLSelectElement>("[data-type-select]");
+
+  function refreshPanels() {
+    const type = typeSelect?.value ?? "TAP_ANSWER";
+    form?.querySelectorAll<HTMLElement>("[data-type-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.typePanel !== type;
+    });
+  }
+
+  typeSelect?.addEventListener("change", refreshPanels);
+  refreshPanels();
+
+  // ---- kelola baris --------------------------------------------------------
+  function rowCount(rowsBox: HTMLElement): number {
+    return rowsBox.querySelectorAll("[data-row]").length;
+  }
+
+  function renumber(rowsBox: HTMLElement) {
+    const sequence = rowsBox.dataset.rows !== undefined;
+    if (!sequence) return;
+    rowsBox.querySelectorAll<HTMLElement>("[data-row]").forEach((row, index) => {
+      const order = row.querySelector(".order");
+      if (order) order.textContent = `${index + 1}.`;
+    });
+  }
+
+  form?.addEventListener("click", (event) => {
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-action]");
+    if (!target || !form.contains(target)) return;
+    const action = target.dataset.action;
+
+    if (action === "add" || action === "add-source") {
+      const section = target.closest(".answer-section, .sources");
+      const rowsBox = section?.querySelector<HTMLElement>("[data-rows], [data-source-rows]");
+      if (!rowsBox) return;
+      const sourceRow = action === "add-source";
+      const template = rowsBox.querySelector<HTMLElement>(
+        sourceRow ? "[data-source-row]" : "[data-row]",
+      );
+      if (!template) return;
+      const clone = template.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll("input, textarea, select").forEach((field) => {
+        const input = field as HTMLInputElement;
+        if (input.type === "radio" || input.type === "checkbox") {
+          input.checked = false;
+        } else if (input.type === "color") {
+          input.value = "#174a3a";
+        } else {
+          input.value = "";
+        }
+      });
+      rowsBox.append(clone);
+      renumber(rowsBox);
+      clone.querySelector("input, textarea, select")?.focus();
+      refreshCountTotal();
+      return;
+    }
+
+    if (action === "remove-source") {
+      const rowsBox = target.closest("[data-source-rows]");
+      const row = target.closest("[data-source-row]");
+      if (!rowsBox || !row) return;
+      if (rowsBox.querySelectorAll("[data-source-row]").length <= 1) {
+        setStatus("Minimal satu blok sumber; kosongkan isinya bila tidak ada sumber.", "error");
+        return;
+      }
+      row.remove();
+      return;
+    }
+
+    const row = target.closest("[data-row]");
+    const rowsBox = target.closest<HTMLElement>("[data-rows]");
+    if (!row || !rowsBox) return;
+    const min = Number(rowsBox.dataset.min ?? "1");
+
+    if (action === "remove") {
+      if (rowCount(rowsBox) <= min) {
+        setStatus(`Minimal ${min} baris untuk tipe ini.`, "error");
+        return;
+      }
+      row.remove();
+      renumber(rowsBox);
+      refreshCountTotal();
+      return;
+    }
+
+    if (action === "up" || action === "down") {
+      const sibling =
+        action === "up" ? row.previousElementSibling : row.nextElementSibling;
+      if (!sibling || !sibling.matches("[data-row]")) return;
+      if (action === "up") rowsBox.insertBefore(row, sibling);
+      else rowsBox.insertBefore(sibling, row);
+      renumber(rowsBox);
+      (row.querySelector("button") as HTMLButtonElement | null)?.focus();
+    }
+  });
+
+  // ---- jumlah total COUNT_OBJECTS -----------------------------------------
+  function refreshCountTotal() {
+    const panel = form?.querySelector<HTMLElement>('[data-type-panel="COUNT_OBJECTS"]');
+    const output = panel?.querySelector<HTMLElement>("[data-count-total]");
+    if (!panel || !output) return;
+    let total = 0;
+    panel.querySelectorAll<HTMLInputElement>('input[data-f="count"]').forEach((input) => {
+      const value = Number(input.value);
+      if (Number.isFinite(value) && value > 0) total += Math.floor(value);
+    });
+    output.textContent = String(total);
+  }
+
+  form?.addEventListener("input", refreshCountTotal);
+  refreshCountTotal();
+
+  // ---- penghitung karakter -------------------------------------------------
+  form?.querySelectorAll<HTMLTextAreaElement>("textarea[data-counter-for]").forEach((area) => {
+    const key = area.dataset.counterFor;
+    const output = form?.querySelector<HTMLElement>(`[data-counter="${key}"]`);
+    const update = () => {
+      if (output) output.textContent = String(area.value.length);
+    };
+    area.addEventListener("input", update);
+    update();
+  });
+
+  // ---- penyusunan payload --------------------------------------------------
+  // Baris dibaca dari DOM menjadi data polos; logika penyusunan & pemeriksaan
+  // ada di `lib/activity/editor-payload.ts` supaya bisa diuji tanpa browser.
+  function rowsIn(panel: HTMLElement): HTMLElement[] {
+    return Array.from(panel.querySelectorAll<HTMLElement>("[data-row]"));
+  }
+
+  function readRows(panel: HTMLElement): EditorRowData[] {
+    return rowsIn(panel).map((row) => {
+      const data: EditorRowData = {};
+      row.querySelectorAll<HTMLElement>("[data-f]").forEach((el) => {
+        const key = el.dataset.f;
+        if (!key) return;
+        if (el instanceof HTMLInputElement && (el.type === "radio" || el.type === "checkbox")) {
+          data[key] = el.checked;
+        } else {
+          data[key] = (el as HTMLInputElement).value.trim();
+        }
+      });
+      return data;
+    });
+  }
+
+  function panelOf(name: string): HTMLElement | null {
+    return form?.querySelector<HTMLElement>(`[data-type-panel="${name}"]`) ?? null;
+  }
+
+  function buildPayload(): Record<string, unknown> {
+    const type = (typeSelect?.value ?? "TAP_ANSWER") as ActivityType;
+    const prompt = (
+      form?.querySelector<HTMLTextAreaElement>("#prompt")?.value ?? ""
+    ).trim();
+    const explanation =
+      form?.querySelector<HTMLTextAreaElement>("#explanation")?.value.trim() ?? "";
+    const chosen = form?.querySelector<HTMLInputElement>("input[data-tf]:checked");
+    const panel = panelOf(type);
+
+    return buildActivityPayload({
+      common: {
+        prompt,
+        interactionType: type,
+        learningAreaId: areaSelect?.value ?? "",
+        skillId: skillSelect?.value ?? "",
+        targetAgeMin: Number(form?.querySelector<HTMLSelectElement>("#age-min")?.value ?? 3),
+        targetAgeMax: Number(form?.querySelector<HTMLSelectElement>("#age-max")?.value ?? 7),
+        difficulty: Number(form?.querySelector<HTMLSelectElement>("#difficulty")?.value ?? 1),
+        explanation: explanation || null,
+        contentOrigin:
+          form?.querySelector<HTMLSelectElement>("#content-origin")?.value ?? "HUMAN_CREATED",
+        sources: readSources(),
+      },
+      rows: panel ? readRows(panel) : [],
+      trueFalse: chosen ? chosen.dataset.tf === "true" : null,
+    });
+  }
+
+  // ---- kirim ---------------------------------------------------------------
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!form || !submit || submit.disabled) return;
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = buildPayload();
+    } catch (error) {
+      setStatus((error as Error).message, "error");
+      return;
+    }
+
+    const problem = validateActivityPayload(payload);
+    if (problem) {
+      setStatus(problem, "error");
+      return;
+    }
+
+    const isEdit = form.dataset.mode === "edit";
+    const endpoint = form.dataset.endpoint ?? "/api/reviewer/aktivitas";
+
+    submit.disabled = true;
+    const idleLabel = submit.textContent;
+    submit.textContent = "Menyimpan…";
+    setStatus("", "busy");
+
+    try {
+      const res = await fetch(endpoint, {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+        credentials: "same-origin",
+      });
+      const body: unknown = await res.json().catch(() => null);
+      const message =
+        typeof body === "object" && body !== null && typeof (body as { message?: unknown }).message === "string"
+          ? (body as { message: string }).message
+          : "Coba lagi sebentar lagi.";
+
+      if (res.ok) {
+        const createdId =
+          typeof body === "object" && body !== null
+            ? (body as { activityId?: unknown }).activityId
+            : undefined;
+        if (!isEdit && typeof createdId === "string") {
+          // Pindah ke mode edit tanpa memuat ulang supaya penyimpanan berikutnya
+          // mengubah aktivitas yang sama, bukan membuat yang baru.
+          form.dataset.mode = "edit";
+          form.dataset.endpoint = `/api/reviewer/aktivitas/${createdId}`;
+          history.replaceState(null, "", `/reviewer/aktivitas/${createdId}`);
+          const reviewStatus = form.querySelector<HTMLElement>("[data-review-status]");
+          if (reviewStatus) reviewStatus.textContent = "Draf · versi 1";
+        }
+        setStatus(isEdit ? "Perubahan tersimpan." : "Tersimpan sebagai draf.", "ok");
+        return;
+      }
+
+      setStatus(message, "error");
+    } catch {
+      setStatus("Jaringan bermasalah. Periksa koneksi lalu coba lagi.", "error");
+    } finally {
+      submit.disabled = false;
+      if (idleLabel !== null) submit.textContent = idleLabel;
+    }
+  });
+</script>
+
+<style>
+  .editor-form {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    box-shadow: var(--shadow-soft);
+    padding: var(--sp-6);
+  }
+
+  .field {
+    margin: 0 0 var(--sp-5);
+    border: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-2);
+  }
+
+  label,
+  .static-label {
+    display: block;
+    font-weight: 600;
+    font-size: var(--fs-base);
+    margin-bottom: var(--sp-2);
+    color: var(--c-ink);
+  }
+
+  h2 {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--c-ink);
+    margin: 0 0 var(--sp-2);
+  }
+
+  .req,
+  .opt {
+    font-weight: 400;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+
+  input[type="text"],
+  input[type="number"],
+  textarea,
+  select {
+    width: 100%;
+    min-height: 48px;
+    padding: var(--sp-2) var(--sp-3);
+    font-family: var(--font-body);
+    font-size: var(--fs-base);
+    color: var(--c-ink);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+  }
+
+  textarea {
+    min-height: 84px;
+    line-height: var(--lh-normal);
+    resize: vertical;
+  }
+
+  input[type="color"] {
+    width: 56px;
+    min-height: 48px;
+    padding: var(--sp-1);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--c-muted-ink);
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--c-deep-green);
+    outline-offset: 2px;
+  }
+
+  .hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+
+  .answer-section,
+  .sources {
+    margin: 0 0 var(--sp-5);
+    padding: var(--sp-4);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-card);
+  }
+
+  .answer-section h2,
+  .sources h2 {
+    margin-bottom: var(--sp-1);
+  }
+
+  .type-panel {
+    margin: var(--sp-4) 0 0;
+    padding: var(--sp-4) var(--sp-3) var(--sp-3);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    background: var(--c-warm-white);
+    min-width: 0;
+  }
+
+  .type-panel[hidden] {
+    display: none;
+  }
+
+  legend {
+    font-weight: 700;
+    font-size: var(--fs-base);
+    color: var(--c-deep-green);
+    padding: 0 var(--sp-2);
+  }
+
+  .rows {
+    display: grid;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+
+  .opt-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2);
+    background: var(--c-ivory);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+  }
+
+  .opt-row input[type="text"],
+  .opt-row input[type="number"],
+  .opt-row select {
+    flex: 1 1 160px;
+    min-width: 0;
+  }
+
+  .opt-row.pair input {
+    flex: 1 1 200px;
+  }
+
+  .order {
+    font-weight: 700;
+    color: var(--c-deep-green);
+    min-width: 1.5rem;
+    text-align: center;
+  }
+
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--touch-min);
+    margin: 0;
+    padding: 0 var(--sp-2);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+    cursor: pointer;
+  }
+
+  .mark.wide {
+    display: flex;
+    padding: 0;
+  }
+
+  .mark input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--c-deep-green);
+  }
+
+  .row-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    min-width: var(--touch-min);
+    padding: 0 var(--sp-3);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    background: var(--c-warm-white);
+    color: var(--c-deep-green);
+    font-family: var(--font-body);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--dur-tap) var(--ease-out);
+  }
+
+  .row-btn:hover {
+    background: var(--c-soft-green);
+  }
+
+  .row-btn.add {
+    background: var(--c-soft-green);
+    border-color: transparent;
+  }
+
+  .source-row {
+    display: grid;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-3);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    margin-bottom: var(--sp-3);
+  }
+
+  .source-row .field {
+    margin: 0;
+  }
+
+  .status-static {
+    margin: 0;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--sp-3);
+    background: var(--c-soft-blue);
+    border: var(--border-subtle);
+    border-radius: var(--r-control);
+    font-weight: 600;
+    color: var(--c-ink);
+  }
+
+  /* Ruang status dipesan supaya layout tidak melompat saat pesan muncul. */
+  .status {
+    min-height: 1.5em;
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+  }
+
+  .status[data-tone="error"] {
+    background: var(--c-soft-peach);
+    border-radius: var(--r-control);
+    padding: var(--sp-2) var(--sp-3);
+    font-weight: 600;
+  }
+
+  .status[data-tone="ok"] {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    border-radius: var(--r-control);
+    padding: var(--sp-2) var(--sp-3);
+    font-weight: 600;
+  }
+
+  .status[data-tone="busy"] {
+    color: var(--c-muted-ink);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 52px;
+    padding: 0 var(--sp-5);
+    border-radius: var(--r-card);
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out), background var(--dur-tap) var(--ease-out);
+  }
+
+  .btn-primary {
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    border: none;
+  }
+
+  .btn-primary:hover {
+    background: var(--c-ink);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.7;
+    cursor: default;
+  }
+
+  .btn-secondary {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    border: var(--border-subtle);
+  }
+
+  .btn-secondary:hover {
+    background: var(--c-sage);
+  }
+
+  @media (max-width: 480px) {
+    .editor-form {
+      padding: var(--sp-4);
+    }
+
+    .actions {
+      flex-direction: column;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn-primary,
+    .btn-secondary,
+    .row-btn {
+      transition: none;
+    }
+  }
+</style>

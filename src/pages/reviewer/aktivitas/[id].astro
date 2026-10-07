@@ -1,0 +1,183 @@
+---
+/**
+ * Edit aktivitas (VRD 11.2). Sesi reviewer dicek middleware (VRD 11.1).
+ *
+ * Payload editor dirakit ulang lewat `buildActivityData` (jalur yang sama
+ * dengan layar anak) sehingga yang diedit persis yang dirender produksi.
+ * Bila payload tidak bisa dirakit → keadaan "belum bisa diedit" tanpa
+ * membocorkan isi (VRD 6.14 gagal aman). Konten yang sedang review/tayang
+ * dikunci (VRD 11.13) — edit diam-diam tidak boleh melewati persetujuan.
+ */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import ActivityEditorForm from "../../../components/ActivityEditorForm.astro";
+import { getDb } from "../../../lib/db/index.ts";
+import {
+  listAllSkillsWithArea,
+  listLearningAreas,
+} from "../../../lib/learning/areas-skills.ts";
+import { buildActivityData } from "../../../lib/activity/content.ts";
+import type { ActivityType } from "../../../lib/activity/domain.ts";
+import {
+  EDITABLE_REVIEW_STATUSES,
+  getReviewStatusLabel,
+  getReviewerActivityDetail,
+} from "../../../lib/activity/reviewer.ts";
+
+const activityId = Astro.params.id ?? "";
+const db = await getDb();
+const detail = activityId ? await getReviewerActivityDetail(db, activityId) : null;
+
+if (!detail) {
+  Astro.response.status = 404;
+}
+
+const areas = detail ? await listLearningAreas(db) : [];
+const skills = detail ? await listAllSkillsWithArea(db) : [];
+
+const data = detail
+  ? buildActivityData({
+      type: detail.activity.interactionType as ActivityType,
+      prompt: detail.activity.prompt,
+      correctAnswer: detail.activity.correctAnswer,
+      options: detail.options,
+    })
+  : null;
+
+const status = detail?.activity.reviewStatus ?? "DRAFT";
+const editable = EDITABLE_REVIEW_STATUSES.includes(status);
+const statusLabel = getReviewStatusLabel(status);
+
+const initial = detail && data
+  ? {
+      id: detail.activity.id,
+      prompt: detail.activity.prompt,
+      interactionType: detail.activity.interactionType,
+      learningAreaId: detail.activity.learningAreaId,
+      skillId: detail.activity.skillId,
+      targetAgeMin: detail.activity.targetAgeMin,
+      targetAgeMax: detail.activity.targetAgeMax,
+      difficulty: detail.activity.difficulty,
+      correctAnswer: data,
+      explanation: detail.activity.explanation,
+      contentOrigin: detail.activity.contentOrigin,
+      sources: detail.sources.map((source) => ({
+        title: source.title,
+        source_type: source.sourceType,
+        reference_detail: source.referenceDetail,
+        methodology: source.methodology,
+        is_disputed: source.isDisputed,
+      })),
+      reviewStatus: detail.activity.reviewStatus,
+      version: detail.activity.version,
+    }
+  : undefined;
+
+const promptPreview = detail
+  ? detail.activity.prompt.length > 90
+    ? `${detail.activity.prompt.slice(0, 90)}…`
+    : detail.activity.prompt
+  : "";
+---
+
+<BaseLayout title="Edit Aktivitas" mode="parent">
+  <header class="page-header">
+    <h1>Edit Aktivitas</h1>
+    {detail && (
+      <p class="subtitle">{promptPreview}</p>
+    )}
+  </header>
+
+  {!detail ? (
+    <section class="notice" role="alert">
+      <h2>Aktivitas tidak ditemukan</h2>
+      <p>Id tidak dikenal atau aktivitas sudah dihapus.</p>
+      <p><a href="/reviewer/aktivitas">Ke daftar aktivitas</a></p>
+    </section>
+  ) : !data ? (
+    <section class="notice" role="alert">
+      <h2>Isi belum bisa diedit</h2>
+      <p>
+        Payload aktivitas ini tidak lengkap sehingga tidak bisa dibuka di editor.
+        Perbaiki lewat jalur konten lain — editor menolak menebak isi yang rusak.
+      </p>
+      <p><a href="/reviewer/aktivitas">Ke daftar aktivitas</a></p>
+    </section>
+  ) : !editable ? (
+    <section class="notice" role="status">
+      <h2>Konten terkunci</h2>
+      <p>
+        Status saat ini: <strong>{statusLabel}</strong>. Konten yang sedang direview
+        atau sudah tayang tidak bisa diedit langsung — ubah status lewat alur review
+        dulu supaya persetujuan tidak terlewati.
+      </p>
+      <p><a href="/reviewer/aktivitas">Ke daftar aktivitas</a></p>
+    </section>
+  ) : initial ? (
+    <ActivityEditorForm mode="edit" areas={areas} skills={skills} initial={initial} />
+  ) : null}
+
+  <p class="back-link">
+    <a href="/reviewer/aktivitas">Kembali ke daftar aktivitas</a>
+  </p>
+</BaseLayout>
+
+<style>
+  .page-header {
+    margin-bottom: var(--sp-6);
+    text-align: center;
+  }
+
+  .page-header h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+    color: var(--c-deep-green);
+  }
+
+  .subtitle {
+    color: var(--c-muted-ink);
+    font-size: var(--fs-base);
+    max-width: 60ch;
+    margin: 0 auto;
+  }
+
+  .notice {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-6);
+    text-align: center;
+  }
+
+  .notice h2 {
+    font-size: var(--fs-xl);
+    margin: 0 0 var(--sp-2);
+  }
+
+  .notice p {
+    color: var(--c-muted-ink);
+    margin: 0 0 var(--sp-4);
+    max-width: 60ch;
+    margin-inline: auto;
+  }
+
+  .notice a,
+  .back-link a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-min);
+  }
+
+  .notice a:hover,
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+
+  .back-link {
+    margin-top: var(--sp-5);
+    text-align: center;
+    font-size: var(--fs-sm);
+  }
+</style>
