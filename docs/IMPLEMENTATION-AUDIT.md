@@ -69,7 +69,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
 || 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.7/10.8/10.10 tertahan OQ 18 + OQ 14** (halaman audio & privasi belum ada, keputusan produk belum ada) |
 | 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
-| 12 | AI-Assisted Draft Pipeline | 🟡 PARTIAL | 2026-10-07 (run ini) — **12.1** skema batch draf + templat prompt (`docs/AI-DRAFT-SCHEMA.md`, konstanta `AI_DRAFT_SCHEMA_VERSION`/`DRAFT_BATCH_MAX` di `src/lib/activity/ai-draft.ts`); **12.3/12.4** `parseDraftBatch` memvalidasi amplop + tiap draf (divalidasi ulang `parseEditorPayload`), satu draf gagal → batch utuh `400 DRAFT_BATCH_INVALID` "Draf ke-N: …" tanpa tulis apa pun; **12.5** `content_origin` DIPAKSA `AI_DRAFT` (klaim draf tak pernah dibaca); **12.6** `POST /api/reviewer/aktivitas/import` menyimpan batch sebagai `DRAFT` di antrean reviewer; **12.15** kolom `version` sudah ada & +1 saat edit (Phase 11). **12.2 menunggu OQ 26** (provider/model); 12.7–12.13 = proses review manual memakai checklist CONTENT-SPEC di antrean yang sudah ada |
+| 12 | AI-Assisted Draft Pipeline | ✅ DONE | 2026-10-07 (run ini) — **12.1** skema batch draf + templat prompt (`docs/AI-DRAFT-SCHEMA.md`, konstanta `AI_DRAFT_SCHEMA_VERSION`/`DRAFT_BATCH_MAX` di `src/lib/activity/ai-draft.ts`); **12.3/12.4** `parseDraftBatch` memvalidasi amplop + tiap draf (divalidasi ulang `parseEditorPayload`), satu draf gagal → batch utuh `400 DRAFT_BATCH_INVALID` "Draf ke-N: …" tanpa tulis apa pun; **12.5** `content_origin` DIPAKSA `AI_DRAFT` (klaim draf tak pernah dibaca); **12.6** `POST /api/reviewer/aktivitas/import` menyimpan batch sebagai `DRAFT` di antrean reviewer + **UI impor** `/reviewer/aktivitas/impor` (tempel JSON/unggah file, validasi client-side, status live region, redirect ke daftar); **12.15** kolom `version` sudah ada & +1 saat edit (Phase 11). **12.2 menunggu OQ 26** (provider/model); 12.7–12.13 = proses review manual memakai checklist CONTENT-SPEC di antrean yang sudah ada |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -1155,21 +1155,23 @@ gerbang review **tanpa menebak provider** (OQ 26).
    PRD §7 (VRD 11.11/11.13), dan feed anak menyaring `PUBLISHED`
    (VRD 11.14) sehingga draf impor tak pernah terlihat anak. Endpoint ini
    bukan "jalur generate": ia menerima batch JSON dari sumber mana pun.
-5. **Resolusi kode di-cache per batch** (Map per area/skill) supaya 25 draf
+5. **UI impor (12.6)**: halaman `/reviewer/aktivitas/impor` (tempel JSON/
+   unggah file, validasi client-side, status via live region, redirect ke
+   daftar pas sukses) + tautan dari dashboard reviewer & daftar aktivitas.
+6. **Resolusi kode di-cache per batch** (Map per area/skill) supaya 25 draf
    dengan area sama tidak memicu query ganda; kode tak dikenal = penolakan,
    bukan fallback diam-diam ke area lain.
-6. **Skipped / tertahan**: VRD 12.2 (generate batch) tetap menunggu OQ 26 —
+7. **Skipped / tertahan**: VRD 12.2 (generate batch) tetap menunggu OQ 26 —
    sengaja tidak ada satu pun pemanggil API model di repo. VRD 12.7–12.13
    adalah langkah pemeriksaan manusia per aktivitas; kerangkanya sudah ada
    (checklist per aktivitas di CONTENT-SPEC + antrean status Phase 11), jadi
    tidak dibangun ulang. 12.14 sudah dijaga matriks + trigger (11.13);
    12.15 memakai kolom `activity.version` yang sudah `+1` saat edit.
-7. **Anti-slop**: tidak ada layar/komponen UI baru (endpoint JSON + modul
-   murni + dokumen) → checklist DESIGN-SYSTEM §12 **dilewati jujur (tanpa
-   layar baru)**; `npx -y @google/design.md lint DESIGN.md` tetap
-   dijalankan: **0 error** (1 info). Tidak ada nilai visual baru di
-   tokens.css.
-8. **Test**: `test/phase12-ai-draft.test.ts` (10 test) — amplop batch, 10
+8. **Anti-slop**: `npx -y @google/design.md lint DESIGN.md` dijalankan:
+   **0 error** (1 info). Nilai visual hanya lewat token; prefers-reduced-motion
+   dihormati; touch target ≥44px; status via teks + aria-live; tanpa
+   gradien/audio/ilustrasi dekoratif.
+9. **Test**: `test/phase12-ai-draft.test.ts` (10 test) — amplop batch, 10
    kasus draf rusak bernomor, 8 tipe aktivitas lolos skema, penandaan
    dipaksa, endpoint suka/gagal/gerbang, dan "tidak ada tulis saat batch
    ditolak". Total suite: **258 passed** (sebelumnya 248).
