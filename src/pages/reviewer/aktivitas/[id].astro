@@ -86,7 +86,19 @@ const promptPreview = detail
   <header class="page-header">
     <h1>Edit Aktivitas</h1>
     {detail && (
-      <p class="subtitle">{promptPreview}</p>
+      <>
+        <p class="subtitle">{promptPreview}</p>
+        <p class="preview-link">
+          <a
+            href={`/reviewer/aktivitas/${encodeURIComponent(detail.activity.id)}/pratinjau`}
+          >
+            Pratinjau sebagai anak
+          </a>
+          <span class="preview-hint">
+            Tampilan &amp; penilaian sama dengan layar anak, tanpa menyimpan data.
+          </span>
+        </p>
+      </>
     )}
   </header>
 
@@ -146,6 +158,40 @@ const promptPreview = detail
     font-size: var(--fs-base);
     max-width: 60ch;
     margin: 0 auto;
+  }
+  .preview-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-1);
+    margin: var(--sp-3) 0 0;
+  }
+  .preview-link a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-5);
+    border-radius: var(--r-control);
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-decoration: none;
+    transition: background var(--dur-tap) var(--ease-out);
+  }
+  .preview-link a:hover {
+    background: var(--c-sage);
+  }
+  .preview-link a:focus-visible {
+    outline: 2px solid var(--c-deep-green);
+    outline-offset: 2px;
+  }
+  .preview-hint {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+    max-width: 60ch;
+    text-align: center;
   }
 
   .notice {

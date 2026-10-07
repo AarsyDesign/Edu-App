@@ -172,6 +172,25 @@ try {
   const loginPage = await getRaw("/reviewer/login");
   check("/reviewer/login publik → 200", loginPage.status === 200);
 
+  // --- gerbang pratinjau (VRD 11.12) sebelum login ---
+  const anonPreview = await getRaw(
+    "/reviewer/aktivitas/00000000-0000-4000-8000-000000000000/pratinjau",
+  );
+  check(
+    "halaman pratinjau tanpa sesi → 303 ke /reviewer/login",
+    anonPreview.status === 303 && String(anonPreview.location).endsWith("/reviewer/login"),
+    `${anonPreview.status} ${anonPreview.location}`,
+  );
+  const anonPreviewApi = await post(
+    "/api/reviewer/aktivitas/00000000-0000-4000-8000-000000000000/preview",
+    { answer: { id: "opt-1" } },
+  );
+  check(
+    "POST preview tanpa sesi → 401",
+    anonPreviewApi.status === 401,
+    JSON.stringify(anonPreviewApi.body),
+  );
+
   // --- login reviewer ---
   const login = await post("/api/reviewer/auth/login", {
     email: "peninjau@contoh.test",
@@ -195,6 +214,57 @@ try {
     "detail awal: riwayat kosong",
     detail0.status === 200 && Array.isArray(detail0.body.history) && detail0.body.history.length === 0,
   );
+
+  // --- pratinjau sebagai anak (VRD 11.12) saat masih DRAFT ---
+  const previewPage = await getRaw(`/reviewer/aktivitas/${activityId}/pratinjau`);
+  check(
+    "halaman pratinjau DRAFT → 200 + penanda mode + markup aktivitas",
+    previewPage.status === 200 &&
+      previewPage.body.includes("Pratinjau sebagai anak") &&
+      previewPage.body.includes('id="activity-config"') &&
+      previewPage.body.includes("data-activity-id") &&
+      previewPage.body.includes("initActivityChrome") &&
+      previewPage.body.includes("tidak disimpan") &&
+      previewPage.body.includes("?usia="),
+    String(previewPage.status),
+  );
+  const previewAge = await getRaw(`/reviewer/aktivitas/${activityId}/pratinjau?usia=2`);
+  check(
+    "usia di luar rentang target jatuh ke usia minimal (3 tahun)",
+    previewAge.status === 200 &&
+      previewAge.body.includes('data-child-age="3"') &&
+      !previewAge.body.includes('data-child-age="2"'),
+    String(previewAge.status),
+  );
+  const previewAgeOk = await getRaw(`/reviewer/aktivitas/${activityId}/pratinjau?usia=7`);
+  check(
+    "usia dalam rentang target dipakai apa adanya",
+    previewAgeOk.status === 200 && previewAgeOk.body.includes('data-child-age="7"'),
+    String(previewAgeOk.status),
+  );
+
+  const previewRight = await post(`/api/reviewer/aktivitas/${activityId}/preview`, {
+    answer: { id: "opt-1" },
+  });
+  const previewWrong = await post(`/api/reviewer/aktivitas/${activityId}/preview`, {
+    answer: { id: "opt-2" },
+  });
+  check(
+    "preview menilai benar/salah tanpa jejak attempt",
+    previewRight.status === 200 &&
+      previewRight.body?.correct === true &&
+      previewRight.body?.preview === true &&
+      previewRight.body?.attemptId === undefined &&
+      previewWrong.status === 200 &&
+      previewWrong.body?.correct === false,
+    `${JSON.stringify(previewRight.body)} / ${JSON.stringify(previewWrong.body)}`,
+  );
+  const previewCross = await post(
+    `/api/reviewer/aktivitas/${activityId}/preview`,
+    { answer: { id: "opt-1" } },
+    "https://jahat.example",
+  );
+  check("preview lintas-asal → 403", previewCross.status === 403, JSON.stringify(previewCross.body));
 
   // --- matriks transisi (VRD 11.11 / 11.13) ---
   const bypass = await post(`/api/reviewer/aktivitas/${activityId}/status`, { to_status: "PUBLISHED" });
@@ -275,12 +345,13 @@ try {
   const page = await getRaw(`/reviewer/aktivitas/${activityId}`);
   console.log("halaman detail:", page.status);
   check(
-    "layar detail 200 + panel Alur review + riwayat teks",
+    "layar detail 200 + panel Alur review + riwayat teks + tautan pratinjau",
     page.status === 200 &&
       page.body.includes("Alur review") &&
       page.body.includes("Riwayat review") &&
       page.body.includes("Menunggu review") &&
-      page.body.includes("data-review-flow"),
+      page.body.includes("data-review-flow") &&
+      page.body.includes("/pratinjau"),
   );
 } catch (err) {
   failed += 1;

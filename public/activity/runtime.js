@@ -135,27 +135,46 @@ function resetInteraction(root) {
  * Kirim jawaban ke server untuk dinilai (VRD 6.9) lalu tampilkan umpan balik.
  * Gagal jaringan → pesan jujur + jawaban bisa dicoba ulang, tidak ada data
  * yang dikarang.
+ *
+ * Mode pratinjau reviewer (VRD 11.12): konfigurasi `preview: true` mengarahkan
+ * penilaian ke endpoint pratinjau yang menilai dengan aturan yang sama tapi
+ * tidak pernah menulis ke tabel anak — perender & alur umpan balik tetap
+ * persis milik produksi.
  */
 export async function submitAnswer(activityId, answer) {
   const root = getRoot(activityId);
   if (!root || busy) return;
   const cfg = readConfig();
+  const preview = cfg.preview === true;
+  const url = preview ? cfg.previewAnswerUrl : "/api/activity/attempt";
 
   busy = true;
   interactionControls(root, true);
   setProgress(root, 100);
 
+  if (!url) {
+    busy = false;
+    interactionControls(root, false);
+    setProgress(root, 0);
+    showNotice(root, "Pratinjau belum siap. Muat ulang halaman pratinjau.");
+    return;
+  }
+
   try {
-    const res = await fetch("/api/activity/attempt", {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        childId: cfg.childId,
-        activityId,
-        sessionId: cfg.sessionId,
-        answer,
-        durationMs: Date.now() - startedAt,
-      }),
+      body: JSON.stringify(
+        preview
+          ? { activityId, answer, durationMs: Date.now() - startedAt }
+          : {
+              childId: cfg.childId,
+              activityId,
+              sessionId: cfg.sessionId,
+              answer,
+              durationMs: Date.now() - startedAt,
+            },
+      ),
       credentials: "same-origin",
     });
     if (!res.ok) {
@@ -187,6 +206,11 @@ export function leaveSession(targetUrl) {
   const done = () => {
     window.location.assign(targetUrl);
   };
+  // Pratinjau reviewer (VRD 11.12): tidak ada sesi anak untuk ditutup.
+  if (cfg.preview === true) {
+    done();
+    return;
+  }
   try {
     fetch("/api/session/complete", {
       method: "POST",
@@ -215,7 +239,9 @@ export function initActivityChrome() {
   setProgress(root, 0);
 
   root.querySelector(".btn-home")?.addEventListener("click", () => {
-    leaveSession(`/learn?child=${encodeURIComponent(cfg.childId)}`);
+    leaveSession(
+      cfg.homeUrl ?? `/learn?child=${encodeURIComponent(cfg.childId)}`,
+    );
   });
   root.querySelector(".btn-next")?.addEventListener("click", () => {
     leaveSession(cfg.nextUrl);

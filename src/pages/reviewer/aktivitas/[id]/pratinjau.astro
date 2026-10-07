@@ -1,0 +1,286 @@
+---
+/**
+ * Pratinjau aktivitas sebagai anak (VRD 11.12).
+ *
+ * - Sesi reviewer dicek middleware (VRD 11.1); rute ini ikut terlindungi.
+ * - Markup dirakit lewat `renderActivity` — perender yang SAMA dengan layar
+ *   anak (`/learn/aktivitas/:id`) — dengan input identik sehingga pratinjau
+ *   cocok dengan produksi (acceptance Phase 11).
+ * - Tidak ada sesi/tabel anak yang disentuh: jawaban dinilai endpoint
+ *   `/api/reviewer/aktivitas/:id/preview` yang hanya menilai (PRD §8).
+ * - Usia pratinjau dibatasi rentang target aktivitas (usia yang memang bisa
+ *   melihatnya); nilai di luar rentang jatuh ke usia minimal.
+ * - Isi tidak bisa dirakit → keadaan "belum siap" tanpa menebak (VRD 6.14).
+ */
+import "../../../../styles/activity.css";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { getDb } from "../../../../lib/db/index.ts";
+import { buildActivityData } from "../../../../lib/activity/content.ts";
+import { renderActivity } from "../../../../lib/activity/renderer.ts";
+import type { ActivityType } from "../../../../lib/activity/domain.ts";
+import {
+  getActivityTypeLabel,
+  getDifficultyLabel,
+} from "../../../../lib/activity/labels.ts";
+import {
+  getReviewStatusLabel,
+  getReviewerActivityDetail,
+} from "../../../../lib/activity/reviewer.ts";
+
+const activityId = Astro.params.id ?? "";
+const detailUrl = `/reviewer/aktivitas/${encodeURIComponent(activityId)}`;
+
+const db = await getDb();
+const detail = activityId ? await getReviewerActivityDetail(db, activityId) : null;
+if (!detail) {
+  Astro.response.status = 404;
+}
+
+const data = detail
+  ? buildActivityData({
+      type: detail.activity.interactionType as ActivityType,
+      prompt: detail.activity.prompt,
+      correctAnswer: detail.activity.correctAnswer,
+      options: detail.options,
+    })
+  : null;
+
+// Rentang usia yang tersedia untuk pratinjau = rentang target aktivitas.
+const ages: number[] = [];
+if (detail) {
+  for (let a = detail.activity.targetAgeMin; a <= detail.activity.targetAgeMax; a++) {
+    ages.push(a);
+  }
+}
+const requestedAge = Number.parseInt(Astro.url.searchParams.get("usia") ?? "", 10);
+const age = ages.includes(requestedAge) ? requestedAge : (ages[0] ?? 3);
+
+const rendered =
+  detail && data
+    ? renderActivity({
+        activityId: detail.activity.id,
+        type: detail.activity.interactionType as ActivityType,
+        prompt: detail.activity.prompt,
+        data,
+        explanation: detail.activity.explanation,
+        childAge: age,
+        audioEnabled: false,
+        reducedMotion: false,
+      })
+    : "";
+
+const configJson = JSON.stringify({
+  preview: true,
+  previewAnswerUrl: `/api/reviewer/aktivitas/${encodeURIComponent(activityId)}/preview`,
+  homeUrl: detailUrl,
+  nextUrl: detailUrl,
+}).replace(/</g, "\\u003c");
+---
+
+<BaseLayout title="Pratinjau Aktivitas" mode="parent">
+  <header class="preview-header">
+    <a
+      class="btn-back"
+      href={detailUrl}
+      data-leave-session
+      aria-label="Kembali ke detail aktivitas"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+    </a>
+    <div class="preview-heading">
+      <p class="preview-kicker">Pratinjau sebagai anak</p>
+      {detail && (
+        <p class="preview-meta">
+          <span>{getActivityTypeLabel(detail.activity.interactionType)}</span>
+          <span aria-hidden="true">·</span>
+          <span>{getDifficultyLabel(detail.activity.difficulty)}</span>
+          <span aria-hidden="true">·</span>
+          <span>Status: <strong>{getReviewStatusLabel(detail.activity.reviewStatus)}</strong></span>
+        </p>
+      )}
+    </div>
+  </header>
+
+  {!detail ? (
+    <section class="notice" role="alert">
+      <h2>Aktivitas tidak ditemukan</h2>
+      <p>Id tidak dikenal atau aktivitas sudah dihapus.</p>
+      <p><a href="/reviewer/aktivitas">Ke daftar aktivitas</a></p>
+    </section>
+  ) : (
+    <>
+      <p class="preview-note" role="status">
+        Perender dan aturan penilaian sama persis dengan layar anak. Jawaban
+        dinilai di server lalu <strong>tidak disimpan</strong> — tidak ada data
+        anak yang dibuat atau diubah.
+      </p>
+
+      {ages.length > 1 && (
+        <nav class="age-switch" aria-label="Usia pratinjau">
+          <span class="age-label">Usia pratinjau:</span>
+          {ages.map((a) => (
+            <a
+              class="age-chip"
+              href={`?usia=${a}`}
+              aria-current={a === age ? "true" : undefined}
+            >
+              {a} tahun
+            </a>
+          ))}
+        </nav>
+      )}
+
+      {data ? (
+        <>
+          <script type="application/json" id="activity-config" set:html={configJson} />
+          <Fragment set:html={rendered} />
+          <script is:inline type="module">
+            import { initActivityChrome } from "/activity/runtime.js";
+            initActivityChrome();
+          </script>
+        </>
+      ) : (
+        <section class="notice" role="alert">
+          <h2>Isi belum bisa dirakit</h2>
+          <p>
+            Payload aktivitas ini tidak lengkap sehingga tidak bisa dirender di
+            pratinjau. Perbaiki isi konten dulu — pratinjau tidak menebak isi
+            yang rusak.
+          </p>
+          <p><a href={detailUrl}>Ke detail aktivitas</a></p>
+        </section>
+      )}
+    </>
+  )}
+</BaseLayout>
+
+<style>
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--c-warm-white);
+    border-bottom: var(--border-subtle);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .btn-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--touch-min);
+    height: var(--touch-min);
+    flex: 0 0 auto;
+    border-radius: var(--r-control);
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    text-decoration: none;
+    transition: background var(--dur-tap) var(--ease-out);
+  }
+  .btn-back:hover {
+    background: var(--c-sage);
+  }
+  .btn-back:focus-visible {
+    outline: 2px solid var(--c-deep-green);
+    outline-offset: 2px;
+  }
+  .preview-heading {
+    min-width: 0;
+  }
+  .preview-kicker {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--c-deep-green);
+    font-size: var(--fs-base);
+  }
+  .preview-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  .preview-note {
+    margin: var(--sp-4) auto var(--sp-3);
+    max-width: 60ch;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--c-soft-blue);
+    border: var(--border-subtle);
+    border-radius: var(--r-card);
+    font-size: var(--fs-sm);
+    color: var(--c-ink);
+    text-align: center;
+  }
+  .age-switch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+  }
+  .age-label {
+    font-size: var(--fs-sm);
+    color: var(--c-muted-ink);
+  }
+  .age-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-4);
+    border-radius: var(--r-control);
+    border: var(--border-subtle);
+    background: var(--c-warm-white);
+    color: var(--c-ink);
+    font-size: var(--fs-sm);
+    text-decoration: none;
+    transition: background var(--dur-tap) var(--ease-out);
+  }
+  .age-chip:hover {
+    background: var(--c-soft-green);
+  }
+  .age-chip:focus-visible {
+    outline: 2px solid var(--c-deep-green);
+    outline-offset: 2px;
+  }
+  /* Status usia terpilih disampaikan lewat teks + aria, bukan warna saja. */
+  .age-chip[aria-current="true"] {
+    background: var(--c-deep-green);
+    color: var(--c-warm-white);
+    font-weight: 700;
+  }
+  .notice {
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-6);
+    text-align: center;
+    margin-top: var(--sp-4);
+  }
+  .notice h2 {
+    font-size: var(--fs-xl);
+    margin: 0 0 var(--sp-2);
+  }
+  .notice p {
+    color: var(--c-muted-ink);
+    margin: 0 0 var(--sp-4);
+    max-width: 60ch;
+    margin-inline: auto;
+  }
+  .notice a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-min);
+  }
+  .notice a:hover {
+    text-decoration: underline;
+  }
+</style>
