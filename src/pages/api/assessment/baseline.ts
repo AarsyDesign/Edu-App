@@ -79,7 +79,8 @@ export const GET: APIRoute = async (context) => {
       `SELECT id, skill_id, learning_area_id, prompt, interaction_type,
               correct_answer, explanation, target_age_min, target_age_max, difficulty
        FROM activity
-       WHERE id = $1::uuid`,
+       WHERE id = $1::uuid
+         AND review_status = 'PUBLISHED'`,
       [act.activityId],
     );
     if (rows.rows.length > 0) {

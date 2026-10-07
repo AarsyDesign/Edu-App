@@ -68,7 +68,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
 || 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-06 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) di bawah 3 fakta — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4–10.5 menyusul** (kekuatan, saran latihan), 10.6 sudah ada grid pengaturan |
-| 11 | Content Management | 🟡 PARTIAL | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data) — **2026-10-07 run ini**; 11.13 sudah dijaga matriks; **11.14 menyusul** |
+| 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
@@ -1110,11 +1110,19 @@ sekaligus menjawab **OQ 4** (matriks transisi) dan memberi dasar **11.13**
   tanpa menulis data anak + cabang `cfg.preview` di runtime. 238 test,
   tsc bersih, build hijau, lint DESIGN.md 0 error, SMOKE_LOOP_OK +
   SMOKE_REVIEWER_OK.
-- **Langkah berikutnya: VRD 11.14 — feed anak hanya PUBLISHED** (uji eksplisit:
-  daftar area/halaman aktivitas/attempt menolak DRAFT/HUMAN_REVIEW/QA_APPROVED/
-  FLAGGED/UNPUBLISHED — query sudah difilter, yang dibutuhkan test regresi +
-  bukti). 11.13 sudah dijaga matriks (matriks + trigger DB + test). Setelah
-  Phase 11: 10.4–10.5 dashboard orang tua (kekuatan, saran latihan) yang masih
-  PARTIAL.
+- **VRD 11.14 selesai 2026-10-07 (run ini)** — feed anak tertutup untuk
+  konten non-published: `test/phase11-14-draft-feed.test.ts` (4 test) menutup
+  semua jalur baca anak — daftar per usia, daftar per area, ambil-satu,
+  rekomendasi berikutnya, kolam asesmen dasar — terhadap DRAFT/HUMAN_REVIEW/
+  QA_APPROVED/FLAGGED/UNPUBLISHED; endpoint `session/start` &
+  `activity/attempt` menjawab 404 tanpa menulis sesi/attempt (kontrol positif
+  PUBLISHED tetap 201/201); **guard sumber** memaksa setiap query
+  `FROM activity` di `src/lib` + `src/pages` non-reviewer menyaring
+  `review_status = 'PUBLISHED'`. Satu penguatan: re-select detail di
+  `GET /api/assessment/baseline` kini ikut menyaring status. 242 test, tsc
+  bersih, build hijau, lint DESIGN.md 0 error.
+- **Langkah berikutnya: VRD 10.4–10.5 dashboard orang tua** (kekuatan anak,
+  saran latihan) — Phase 11 sudah ✅; 10.4–10.5 satu-satunya item fase parsial
+  yang actionable (Phase 8 terblokir OQ 16/17, Phase 9.6 menunggu OQ 23).
 - **Verifikasi ulang tiap run**: `npm test && ./node_modules/.bin/tsc --noEmit && npm run build && node scripts/smoke-loop.mjs && node scripts/smoke-reviewer.mjs` (harus `SMOKE_LOOP_OK` + `SMOKE_REVIEWER_OK`).
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**
