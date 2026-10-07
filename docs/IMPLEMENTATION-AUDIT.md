@@ -67,7 +67,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; **2026-10-06 (run ini)**: 7.5 halaman detail area (menutup OQ 19) + 7.6/7.7 layar aktivitas interaktif, endpoint `/api/activity/attempt` & `/api/session/complete`, sesi per-tampilan, smoke E2E `SMOKE_LOOP_OK` (23 cek) |
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
-|| 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-06 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) di bawah 3 fakta — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4–10.5 menyusul** (kekuatan, saran latihan), 10.6 sudah ada grid pengaturan |
+|| 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.7/10.8/10.10 tertahan OQ 18 + OQ 14** (halaman audio & privasi belum ada, keputusan produk belum ada) |
 | 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
@@ -485,6 +485,15 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    multi-baris dengan maksimal 5 sumber per aktivitas karena jalur 2 pembacaan
    konten (`content.ts`) memang membaca tabel itu. Bila yang dikehendaki cukup
    satu baris sederhana, permudah UI-nya.
+
+26. **Penyedia/model AI untuk VRD 12.2 (generate batch draf)**: PRD §5/§14
+   hanya menetapkan alurnya (`AI draft → human review → … → publish`) tanpa
+   menyebut provider, model, atau kredensial, dan PRD §19 melarang AI di jalur
+   runtime anak. Skema + validasi + penandaan `AI_DRAFT` (12.1, 12.3–12.5)
+   bisa dibuat tanpa provider, tetapi 12.2 ("generate small batches") butuh
+   keputusan: pakai API eksternal (butuh kunci di env, bukan di repo), model
+   lokal, atau impor manual draf dari berkas. Putuskan sebelum membangun
+   jalur generate; jangan menebak.
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -1073,6 +1082,45 @@ sekaligus menjawab **OQ 4** (matriks transisi) dan memberi dasar **11.13**
    penilaian benar/salah tanpa `attemptId`, lintas-asal 403, tautan
    `/pratinjau` di layar detail).
 
+## Keputusan Phase 10 (lanjutan) — kekuatan & saran latihan (VRD 10.4–10.5, 2026-10-07)
+
+Konteks: 10.4/10.5 sebenarnya sudah dikomit 2026-10-06 (`130506b`,
+`d31c1ff`) tetapi belum diverifikasi dan meninggalkan cacat kualitas; run ini
+menutupnya.
+
+1. **Cacat yang diperbaiki — UUID bocor ke orang tua**: bagian Kekuatan
+   merender `skill.skillId` (UUID dari `learning_progress.skill_id`) sebagai
+   judul skill, dan mencari judul area lewat `skillId.split("-")[0]` yang
+   mustahil cocok (`areaId` juga UUID) sehingga jatuh balik ke UUID. Kini
+   modul baru `src/lib/progress/strengths.ts` (`pickStrengths`,
+   `buildSkillLabels`, `getSkillLabel`) menerjemahkan UUID → judul skill +
+   judul area dari `listAllSkillsWithArea`; skill yang hilang jatuh ke
+   `Nama skill tidak tersedia`, bukan UUID.
+2. **Seleksi kekuatan pindah ke modul murni**: filter `attempts > 0`, urut
+   akurasi → jumlah percobaan → skillId (tiebreak eksplisit, deterministik),
+   limit 3 (dibatasi 1..5; di luar rentang jatuh ke bawaan), masukan tidak
+   diurutkan di tempat. **Tanpa ambang** — OQ 23 tetap menunggu bukti.
+3. **Bukti, bukan klaim**: tiap baris kini memuat `n jawaban` + pil
+   `X% benar` dengan `aria-label` lengkap, dan catatan menyebut "makin banyak
+   percobaan, makin bisa diandalkan" — orang tua bisa menilai kepercayaan
+   angka; status tidak disampaikan lewat warna saja.
+4. **Saran latihan (10.5) dirapikan**: tipe/tingkat memakai
+   `getActivityTypeLabel` + `getDifficultyLabel` yang sudah ada (bukan enum
+   `TAP_ANSWER` + deret bintang), dan kini punya **empty state** saat
+   `nextRecommendation` `null` ("Belum ada aktivitas terbit…") — tidak ada
+   layar buntu. Tautan "Mulai Aktivitas Ini" menujuk `/learn/aktivitas/:id`
+   yang memang ada.
+5. **Anti-slop**: satu aksi utama per bagian, tanpa elemen dekoratif baru,
+   token desain saja (tes 0 hex), sentuh `--touch-min`, empty state untuk
+   kedua bagian, animasi tidak ditambah (musik OFF, `.reduce-motion` tetap),
+   tanpa karakter/kompetisi. `npx -y @google/design.md lint DESIGN.md` →
+   **0 error, 0 warning** (1 info token-summary).
+6. **Verifikasi**: `npm test` **248 pass / 0 fail** (6 baru di
+   `test/parent-strengths-suggestion.test.ts`), `tsc --noEmit` bersih,
+   `npm run build` hijau, `node scripts/smoke-loop.mjs` → **SMOKE_LOOP_OK**
+   (+2 cek: judul skill tampil **dan** UUID skill tidak bocor; saran tampil
+   tanpa enum mentah), `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**.
+
 ## Untuk run berikutnya
 
 - **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
@@ -1121,8 +1169,16 @@ sekaligus menjawab **OQ 4** (matriks transisi) dan memberi dasar **11.13**
   `review_status = 'PUBLISHED'`. Satu penguatan: re-select detail di
   `GET /api/assessment/baseline` kini ikut menyaring status. 242 test, tsc
   bersih, build hijau, lint DESIGN.md 0 error.
-- **Langkah berikutnya: VRD 10.4–10.5 dashboard orang tua** (kekuatan anak,
-  saran latihan) — Phase 11 sudah ✅; 10.4–10.5 satu-satunya item fase parsial
-  yang actionable (Phase 8 terblokir OQ 16/17, Phase 9.6 menunggu OQ 23).
+- **VRD 10.4–10.5 selesai 2026-10-07 (run ini)** — kekuatan (judul skill
+  manusiawi, sampel `n jawaban`, seleksi murni di
+  `src/lib/progress/strengths.ts`) + saran latihan (label tipe/tingkat +
+  empty state) di `/parent/anak/:id`; 248 test, tsc bersih, build hijau,
+  SMOKE_LOOP_OK + SMOKE_REVIEWER_OK, lint DESIGN.md 0 error.
+- **Langkah berikutnya: VRD 12.1 — skema/prompt draf aktivitas + validasi
+  (12.3/12.4) + penandaan `AI_DRAFT` (12.5)**. Phase 11 ✅; sisa fase parsial
+  semua tertahan keputusan (10.7/10.8/10.10 → OQ 18 + OQ 14; Phase 8 →
+  OQ 16/17; Phase 9.6 → OQ 23). **VRD 12.2 (generate batch) menunggu OQ 26**
+  (provider/model AI) — bangun skema + validasi + gerbang review dulu,
+  jangan menebak provider.
 - **Verifikasi ulang tiap run**: `npm test && ./node_modules/.bin/tsc --noEmit && npm run build && node scripts/smoke-loop.mjs && node scripts/smoke-reviewer.mjs` (harus `SMOKE_LOOP_OK` + `SMOKE_REVIEWER_OK`).
 - **Perbaikan tautan pengaturan → OQ 18 (Phase 10/14).**

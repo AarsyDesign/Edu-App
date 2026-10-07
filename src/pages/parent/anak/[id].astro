@@ -12,8 +12,9 @@
  *
  * PRD §12/§22: orang tua paham keadaan anak dalam <30 detik — makanya layar
  * ini rendah density: tiga fakta + satu aksi utama, tanpa vanity metrics,
- * tanpa kata lulus/gagal/peringkat (VRD 9.6/9.7). Bagian lanjutan (sesi,
- * area, kekuatan, saran latihan) menyusul sebagai item VRD 10.2–10.5.
+ * tanpa kata lulus/gagal/peringkat (VRD 9.6/9.7). Bagian lanjutan sesi (10.2),
+ * area (10.3), kekuatan (10.4), dan saran latihan (10.5) ikut di halaman ini
+ * — semuanya membaca fakta yang sama, tanpa ambang baru.
  */
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { getDb } from "../../../lib/db/index.ts";
@@ -21,7 +22,9 @@ import { parentIdOf } from "../../../lib/children/api.ts";
 import { getChildForParent } from "../../../lib/auth/guard.ts";
 import { getParentProgressSummary } from "../../../lib/progress/summary.ts";
 import { getSessionDetails } from "../../../lib/progress/sessions.ts";
-import { listLearningAreas } from "../../../lib/learning/areas-skills.ts";
+import { listAllSkillsWithArea } from "../../../lib/learning/areas-skills.ts";
+import { buildSkillLabels, getSkillLabel, pickStrengths, type SkillLabel } from "../../../lib/progress/strengths.ts";
+import { getActivityTypeLabel, getDifficultyLabel } from "../../../lib/activity/labels.ts";
 
 const parentIdResult = parentIdOf(Astro);
 if (parentIdResult instanceof Response) {
@@ -70,22 +73,12 @@ const sessionSub =
     : "Belum ada durasi";
 const learnUrl = `/learn?child=${encodeURIComponent(child.childId)}`;
 
-/** Ambil nama area untuk menampilkan kekuatan. */
-const allAreas = await listLearningAreas(db);
-const areaTitleById = new Map(allAreas.map((a) => [a.areaId, a.title]));
-
-/** Hitung kekuatan: skill dengan akurasi tertinggi (min. 1 percobaan). */
-const skills = summary.skills;
-const practicedSkills = skills.filter((s) => s.attempts > 0);
-const topStrengths = practicedSkills
-  .sort((a, b) => {
-    // urutkan: akurasi tinggi dulu, lalu percobaan banyak (stabilitas), lalu skillId
-    const accA = a.accuracy ?? -1;
-    const accB = b.accuracy ?? -1;
-    if (accB !== accA) return accB - accA;
-    return b.attempts - a.attempts;
-  })
-  .slice(0, 3);
+/** Kekuatan (VRD 10.4): skill dengan akurasi tertinggi, deterministik. */
+const practicedSkills = summary.skills.filter((s) => s.attempts > 0);
+const topStrengths = pickStrengths(summary.skills);
+/** UUID skill → judul skill + judul area; orang tua tidak pernah melihat UUID. */
+const skillLabels: ReadonlyMap<string, SkillLabel> =
+  topStrengths.length > 0 ? buildSkillLabels(await listAllSkillsWithArea(db)) : new Map<string, SkillLabel>();
 ---
 
 <BaseLayout title={`Ringkasan ${child.nickname}`} mode="parent">
@@ -207,15 +200,23 @@ const topStrengths = practicedSkills
           <h2>Kekuatan</h2>
           <ul class="strengths-list">
             {topStrengths.map((skill) => {
-              const areaTitle = areaTitleById.get(skill.skillId.split("-")[0]) ?? skill.skillId;
+              const label = getSkillLabel(skillLabels, skill.skillId);
               const acc = skill.accuracy !== null ? Math.round(skill.accuracy * 100) : null;
               return (
                 <li class="strength-item">
-                  <span class="strength-skill">{skill.skillId}</span>
-                  <span class="strength-area">{areaTitle}</span>
+                  <div class="strength-main">
+                    <span class="strength-skill">{label.skillTitle}</span>
+                    <span class="strength-area">
+                      {label.areaTitle !== null ? `${label.areaTitle} · ` : ""}
+                      {skill.attempts} jawaban
+                    </span>
+                  </div>
                   {acc !== null && (
-                    <span class="strength-accuracy" aria-label={`Akurasi ${acc}%`}>
-                      {acc}%
+                    <span
+                      class="strength-accuracy"
+                      aria-label={`Akurasi ${acc} persen dari ${skill.attempts} jawaban`}
+                    >
+                      {acc}% benar
                     </span>
                   )}
                 </li>
@@ -223,7 +224,7 @@ const topStrengths = practicedSkills
             })}
           </ul>
           <p class="strengths-note">
-            Berdasarkan {practicedSkills.length} skill yang pernah dipraktikkan. Angka = akurasi jawaban benar, bukan label kompetitif.
+            Berdasarkan {practicedSkills.length} skill yang pernah dipraktikkan. Angka = akurasi jawaban benar, bukan label kompetitif; makin banyak percobaan, makin bisa diandalkan.
           </p>
         </section>
       )}
@@ -234,7 +235,7 @@ const topStrengths = practicedSkills
         </p>
       )}
 
-      {summary.nextRecommendation && (
+      {summary.nextRecommendation ? (
         <section class="section" aria-label="Saran latihan">
           <h2>Saran Latihan Berikutnya</h2>
           <div class="suggestion-card">
@@ -242,11 +243,18 @@ const topStrengths = practicedSkills
               <span class="suggestion-area">{summary.nextRecommendation.learningAreaTitle}</span>
               <span class="suggestion-prompt">{summary.nextRecommendation.prompt}</span>
               <span class="suggestion-meta">
-                Tipe: {summary.nextRecommendation.activityType} · Tingkat: {'★'.repeat(summary.nextRecommendation.difficulty)}{'☆'.repeat(3 - summary.nextRecommendation.difficulty)}
+                {getActivityTypeLabel(summary.nextRecommendation.activityType)} · {getDifficultyLabel(summary.nextRecommendation.difficulty)}
               </span>
             </div>
             <a class="btn-primary" href={`/learn/aktivitas/${summary.nextRecommendation.activityId}?child=${encodeURIComponent(child.childId)}`}>Mulai Aktivitas Ini</a>
           </div>
+        </section>
+      ) : (
+        <section class="section" aria-label="Saran latihan">
+          <h2>Saran Latihan Berikutnya</h2>
+          <p class="suggestion-empty">
+            Belum ada aktivitas terbit yang bisa direkomendasikan untuk usia {child.age} tahun. Saran otomatis muncul begitu ada aktivitas yang sesuai.
+          </p>
         </section>
       )}
     </>) : (
@@ -592,6 +600,12 @@ const topStrengths = practicedSkills
       grid-template-columns: 1fr;
     }
   }
+  .strength-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    min-width: 0;
+  }
   .strength-skill {
     font-family: var(--font-heading);
     font-size: var(--fs-base);
@@ -653,6 +667,17 @@ const topStrengths = practicedSkills
   .suggestion-meta {
     font-size: var(--fs-sm);
     color: var(--c-muted-ink);
+  }
+  .suggestion-empty {
+    margin: 0;
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    font-size: var(--fs-base);
+    color: var(--c-muted-ink);
+    line-height: 1.5;
+    max-width: 60ch;
   }
   @media (min-width: 768px) {
     .suggestion-card {

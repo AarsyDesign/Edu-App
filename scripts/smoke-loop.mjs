@@ -28,7 +28,7 @@ process.env.PGLITE_DIR = DB_DIR;
 const { getDb, closeDb } = await import("../src/lib/db/index.ts");
 const db = await getDb();
 const skillRow = await db.query(
-  `SELECT s.id AS skill_id, s.learning_area_id, la.code AS area_code
+  `SELECT s.id AS skill_id, s.title AS skill_title, s.learning_area_id, la.code AS area_code
      FROM skill s JOIN learning_area la ON la.id = s.learning_area_id
     ORDER BY la.sort_order, s.sort_order LIMIT 1`,
 );
@@ -311,6 +311,20 @@ try {
   check(
     "ringkasan tanpa kata lomba/lulus-gagal",
     !/\b(lulus|gagal|peringkat|leaderboard|juara)\b/i.test(overview.body),
+  );
+
+  // --- VRD 10.4 kekuatan: judul skill manusiawi, UUID tidak pernah tampil ---
+  check(
+    "kekuatan menampilkan judul skill, bukan UUID",
+    overview.body.includes(skill.skill_title) && !overview.body.includes(skill.skill_id),
+    "judul skill tidak tampil atau UUID skill bocor ke halaman",
+  );
+
+  // --- VRD 10.5 saran latihan: judul section + label tipe, bukan enum mentah ---
+  check(
+    "saran latihan tampil dengan label tipe (tanpa enum mentah)",
+    overview.body.includes("Saran Latihan Berikutnya") && !overview.body.includes("TAP_ANSWER"),
+    "label saran latihan tidak konsisten",
   );
 
   const overviewForeign = await getRaw(`/parent/anak/${randomUUID()}`);
