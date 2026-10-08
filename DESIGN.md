@@ -9,7 +9,7 @@ colors:
   neutral: "#FFF9EE"
   warm-white: "#FFFCF7"
   ink: "#26332D"
-  muted-ink: "#6C776F"
+  muted-ink: "#5C665E"
   soft-green: "#DDEDE2"
   sage: "#A9C7B3"
   soft-blue: "#DDEAF5"
@@ -158,8 +158,9 @@ Dials: `ENERGY 1` (calm, not noisy) · `RHYTHM 2` (consistent) ·
   playful highlights — never a full-screen background.
 - **Neutral (#FFF9EE, Ivory):** app background. Warm White (#FFFCF7) is the
   card/surface layer above it.
-- **Ink (#26332D) / Muted Ink (#6C776F):** body text and secondary text;
-  muted ink is only used at 14px+ on warm white (≥4.5:1).
+- **Ink (#26332D) / Muted Ink (#5C665E):** body text and secondary text;
+  muted ink clears ≥4.5:1 on every surface it is used on — ivory, warm
+  white, soft green and soft peach (verified by `test/color-contrast.test.ts`).
 - **Semantic:** success #3F8F62, warning #C68A25, error #B85A52 — for status
   indicators (dots, icons, fills), **always paired with text or icon**; color
   is never the sole carrier of correctness.

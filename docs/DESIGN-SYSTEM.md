@@ -46,7 +46,7 @@ Base:
 - Soft Blue: #DDEAF5
 - Soft Peach: #F7DCCB
 - Ink: #26332D
-- Muted Ink: #6C776F
+- Muted Ink: #5C665E
 - Success Green: #3F8F62
 - Warning Amber: #C68A25
 - Error Red: #B85A52

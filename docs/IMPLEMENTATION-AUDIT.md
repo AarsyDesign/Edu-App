@@ -74,7 +74,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
 | 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15 |
-| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning |
+| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts` |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
@@ -382,12 +382,13 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    tabel database lewat migrasi baru.
 9. **Cookie `Secure`/HTTPS**: aktif otomatis saat `NODE_ENV=production`; nilai
    praktisnya baru benar setelah deployment target + HTTPS tersedia (OQ 2).
-10. **Kontras `--c-muted-ink` di atas ivory**: 4,45:1 (sedikit di bawah 4,5:1)
-    — dipakai teks sekunder di empty state yang sudah ada (index/learn/parent/
-    500). Di atas warm-white 4,55:1 (lolos). Perbaikannya = menggelapkan token
-    global di DESIGN.md + tokens.css (mis. `#6C776F` → `#687269`, 4,77:1),
-    keputusan palet yang menyinggung banyak layar → jalankan bersama Phase 17
-    (Anti-Slop Visual QA), bukan diam-diam di run UI.
+10. ~~**Kontras `--c-muted-ink` di atas ivory**: 4,45:1 (sedikit di bawah
+    4,5:1) — dipakai teks sekunder di empty state yang sudah ada
+    (index/learn/parent/500). Di atas warm-white 4,55:1 (lolos).~~ →
+    **SELESAI 2026-10-08** (lihat "Keputusan — OQ 10" di bawah): token
+    digelapkan ke `#5C665E` sehingga lolos AA di atas ivory (5,70:1),
+    warm-white (5,83:1), soft-green (4,91:1) dan soft-peach (4,56:1);
+    dikunci test `test/color-contrast.test.ts`.
 11. ~~**Konvensi namespace API terlindungi**: gerbang middleware menjaga
     `/parent`, `/api/parent`, dan `/api/children` — asumsi penamaan, bukan
     kebutuhan PRD~~ → **TERJAWAB 2026-10-05**: Phase 4 memakai persis
@@ -1289,6 +1290,52 @@ bawah diukur, bukan ditebak.
 11. **Verifikasi**: `npm test` 258 pass, `tsc --noEmit` bersih,
     `npm run build` hijau, `npm run perf` → **PERF_OK**,
     `smoke-loop`/`smoke-reviewer` tetap hijau.
+
+## Keputusan — OQ 10: kontras `--c-muted-ink` (penutup Phase 17, 2026-10-08)
+
+Konteks: Phase 17 sudah DONE tetapi OQ 10 (kontras teks sekunder) tidak ikut
+dikerjakan, padahal OQ 10 sendiri menugaskannya ke Phase 17. Run ini
+menutupnya sebagai langkah atomik.
+
+1. **Nilai baru `#5C665E`, bukan `#687269` seperti saran lama.** Hitungan
+   menunjukkan `#687269` hanya menaikkan kontras di ivory (4,77) — di atas
+   permukaan bertint tetap gagal: soft-green 4,12 dan soft-peach 3,82.
+   Kombinasi itu nyata: `.feedback-hint` (teks petunjuk layar aktivitas anak,
+   `--fs-sm`) memakai `--c-muted-ink` di dalam `.activity-feedback` yang
+   berlatar `soft-green` (benar) / `soft-peach` (belum tepat). `#5C665E`
+   dipilih sebagai nilai paling terang yang lolos ≥4,5:1 di **semua**
+   permukaan tempat token itu benar-benar dipakai: ivory 5,70 · warm-white
+   5,83 · soft-green 4,91 · soft-peach 4,56 · soft-blue 4,88 · putih 5,97.
+2. **Latar berwarna lain tidak perlu ditangani** karena teks di atasnya
+   memang bukan muted-ink: badge `warm-yellow`, `coming-soon` `soft-blue`,
+   tombol tertertiar `sage`, status error `soft-peach`, status ok
+   `soft-green` semuanya memakai `--c-ink` / `--c-deep-green` (dicek satu
+   per satu di seluruh `src/`). Satu-satunya pengecualian lama,
+   `.history-meta` di `ReviewFlowPanel`, sengaja tetap `--c-ink`.
+3. **Spesifikasi jujur setelah perubahan**: DESIGN.md dulu menulis "muted
+   ink is only used at 14px+ on warm white" — kenyataannya dipakai juga di
+   ivory, di soft-green/soft-peach, dan turun ke `--fs-xs` (`.not-started`,
+   `.activity-area`). Kalimat diganti agar menyebut permukaan yang benar;
+   dengan kontras 4,56:1 ke atas, pemakaian 12px pun tetap lolos AA.
+4. **Test sebagai gerbang** — `test/color-contrast.test.ts` (4 test):
+   muted-ink ≥4,5:1 ke atas keempat permukaan, `--c-ink` ≥4,5:1 di
+   ivory/warm-white, mirror DESIGN.md ↔ tokens.css untuk token ini, dan
+   penolakan nilai lama `#6C776F` masih bersembunyi di berkas mana pun.
+5. **Bukti di peramban sungguhan** (QA E2E eksploratif, server hasil build
+   :4323): beranda `.sub` muted-ink di atas ivory → **5,70:1**; halaman
+   login `.intro` di atas warm-white → **5,83:1** (dihitung dari computed
+   style + rantai latar efektif, bukan dari harapan).
+6. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — tanpa layar baru,
+   jadi checklist per-layar dijalankan untuk permukaan yang tersentuh:
+   hierarki & jumlah dekorasi tidak berubah (hanya nilai warna via token);
+   sentuh target, usia, kepercayaan orang tua, audio (OFF), reduced-motion
+   tidak tersentuh — perubahan murni warna teks; QA 390px tidak berubah
+   (tidak ada layout/box model yang disentuh); status tetap teks, bukan
+   warna. `node …/@google/design.md/dist/index.js lint DESIGN.md` →
+   **0 error, 0 warning** (1 info token-summary).
+7. **Verifikasi**: `npm test` **262 pass / 0 fail** (4 baru), `tsc --noEmit`
+   bersih, `npm run build` hijau, `npm run perf` → **PERF_OK**,
+   `smoke-loop` → **SMOKE_LOOP_OK**, `smoke-reviewer` → **SMOKE_REVIEWER_OK**.
 
 ## Untuk run berikutnya
 

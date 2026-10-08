@@ -347,9 +347,9 @@ function formatDateTime(value: Date): string {
   .history-meta {
     margin: var(--sp-1) 0 0;
     font-size: var(--fs-xs);
-    /* --c-ink, bukan --c-muted-ink: di atas latar ivory kontras muted-ink
-       4,45:1 (di bawah WCAG AA) — hierarki ditentukan ukuran, bukan warna
-       tipis (lihat OQ 10). */
+    /* --c-ink: hierarki ditentukan ukuran, bukan warna tipis. (OQ 10 sudah
+       ditutup 2026-10-08 — muted-ink kini lolos AA di atas ivory — pilihan
+       ini dipertahankan karena metadata provenance memang dibuat tegas.) */
     color: var(--c-ink);
   }
 
