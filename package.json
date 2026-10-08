@@ -12,6 +12,7 @@
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:loop": "node scripts/smoke-loop.mjs",
     "smoke:reviewer": "node scripts/smoke-reviewer.mjs",
+    "perf": "node scripts/perf-measure.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

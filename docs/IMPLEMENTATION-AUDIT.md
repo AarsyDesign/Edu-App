@@ -70,11 +70,14 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.7/10.8/10.10 tertahan OQ 18 + OQ 14** (halaman audio & privasi belum ada, keputusan produk belum ada) |
 || 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
 || 12 | AI-Assisted Draft Pipeline | ✅ DONE | 2026-10-07 (run ini) — **12.1** skema batch draf + templat prompt (`docs/AI-DRAFT-SCHEMA.md`, konstanta `AI_DRAFT_SCHEMA_VERSION`/`DRAFT_BATCH_MAX` di `src/lib/activity/ai-draft.ts`); **12.3/12.4** `parseDraftBatch` memvalidasi amplop + tiap draf (divalidasi ulang `parseEditorPayload`), satu draf gagal → batch utuh `400 DRAFT_BATCH_INVALID` "Draf ke-N: …" tanpa tulis apa pun; **12.5** `content_origin` DIPAKSA `AI_DRAFT` (klaim draf tak pernah dibaca); **12.6** `POST /api/reviewer/aktivitas/import` menyimpan batch sebagai `DRAFT` di antrean reviewer + **UI impor** `/reviewer/aktivitas/impor` (tempel JSON/unggah file, validasi client-side, status live region, redirect ke daftar); **12.15** kolom `version` sudah ada & +1 saat edit (Phase 11). **12.2 menunggu OQ 26** (provider/model); 12.7–12.13 = proses review manual memakai checklist CONTENT-SPEC di antrean yang sudah ada |
-|| 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
-||| 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) ||
-||| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 — style: replace hardcoded colors with design tokens across screens (Phase 17 visual QA) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning |,
-
-| 18 | Performance | 🟡 PARTIAL | 2026-10-07 — 18.1–18.8 measure & optimize: initial load, images, lazy-loading, bundle size, activity transition speed, memory on low-end mobile, tablet performance; verify first meaningful child interaction is fast, no unnecessary media blocks first activity |,||| 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis ||
+| 13 | Seed 100 Activities | 🔒 gate review Arsyad | dilarang ditanam otomatis — impor batch lewat `/reviewer/aktivitas/impor` menunggu konten yang direview manusia (PRD §5/§7) |
+| 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
+| 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
+| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15 |
+| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning |
+| 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
+| 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
+| 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
 
 ## Keputusan Phase 5 — Learning Areas & Skills (VRD 5.1–5.6, 2026-10-05)
 
@@ -501,6 +504,18 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    berstatus `DRAFT`). Yang masih menunggu: 12.2 "generate small batches"
    butuh keputusan — API eksternal (kunci di env, bukan di repo), model
    lokal, atau cukup impor manual dari berkas. Jangan menebak.
+
+27. **Header cache aset `public/` (temuan VRD 18.5, 2026-10-07)**:
+   `/activity/runtime.js` (dan modul tipe lain, nama tetap) dilayani adapter
+   Astro dengan `cache-control: public, max-age=0` + ETag, tetapi tidak
+   menjawab 304 untuk `If-None-Match` → 8,5 KB diunduh ulang tiap kunjungan
+   layar aktivitas. Header file `public/` ditentukan adapter **sebelum**
+   middleware aplikasi, jadi pilihan perbaikannya: (a) biarkan (dampak
+   kecil), (b) pindahkan berkas ke rute SSR/hash nama (repot, tapi bikin
+   immutable), atau (c) tambah reverse proxy yang mengatur header saat
+   deploy (bergantung OQ 2). Aset ber-hashed `/_astro/*` sudah `immutable`
+   1 tahun — tidak ada masalah di sana. Keputusan ditahan; jangan diubah
+   diam-diam.
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -1220,7 +1235,78 @@ juga verifikasi, bukan pembangunan fitur.
    dipaksa, endpoint suka/gagal/gerbang, dan "tidak ada tulis saat batch
    ditolak". Total suite: **258 passed** (sebelumnya 248).
 
+## Keputusan Phase 18 — performa (VRD 18.1–18.8, 2026-10-07)
+
+Konteks: seluruh fase tersisa tertahan keputusan produk; Phase 18 adalah
+verifikasi terukur terakhir yang tidak butuh keputusan baru. Semua angka di
+bawah diukur, bukan ditebak.
+
+1. **Alat ukur tetap ada, bukan sesi sekali pakai**: `npm run perf`
+   (`scripts/perf-measure.mjs`) mengukur terhadap server hasil `npm run build`
+   + database segar (pola smoke): TTFB median 5× per halaman, berat halaman
+   (HTML + aset referensi), bundel klien, header cache aset, dan latensi
+   `POST /api/activity/attempt`. Ambang di dalam skrip: TTFB < 500 ms,
+   berat halaman anak < 300 KB, aset ber-hashed wajib `Cache-Control`
+   public + max-age, latensi attempt < 500 ms. Keluaran: **PERF_OK**.
+2. **18.1 Muat awal (lokal)**: beranda TTFB 5 ms (HTML 5,4 KB) · login 6 ms
+   (7,6 KB) · child home 66 ms pertama / 7 KB berikutnya (total 19,5 KB) ·
+   halaman area 7 ms (8,1 KB) · layar aktivitas 8 ms (HTML 8,4 KB + aset
+   17 KB = 25,4 KB). Interaksi anak pertama tidak menunggu apa pun selain
+   HTML + 1 CSS — tidak ada font eksternal, tidak ada pihak ketiga.
+3. **18.2 Gambar**: tidak ada satu pun gambar di `public/` (9 file, 16,7 KB,
+   semuanya JS modul aktivitas) maupun di `src/` — jadi tidak ada media yang
+   bisa memblokir interaksi pertama, dan tidak ada yang perlu dikompresi.
+4. **18.3 Lazy-load**: terpenuhi desain — perender type-driven hanya
+   merender `<script type="module">` yang mengimpor **satu** modul tipe
+   (`tap-answer.js`, dll., masing-masing < 3 KB); bukti dari browser:
+   layar aktivitas TAP_ANSWER memuat tepat 3 berkas
+   (`renderer.css`, `tap-answer.js`, `runtime.js`).
+5. **18.4 Bundel**: `dist/client` = 19 file, 86,9 KB mentah (~27,8 KB gzip
+   estimasi 0,32) — jauh di bawah anggaran 512 KB. Server-side rendering
+   membuat sebagian besar halaman murni HTML.
+6. **18.5 Cache**: aset ber-hashed `/_astro/*` → `public, max-age=31536000,
+   immutable` ✅. **`/activity/runtime.js` (nama tetap) → `max-age=0` +
+   ETag tetapi adapter tidak menjawab 304** untuk `If-None-Match`, jadi
+   diunduh ulang penuh (8,5 KB) tiap kunjungan layar aktivitas. Header file
+   `public/` diatur adapter Astro **sebelum** middleware aplikasi, jadi tidak
+   bisa diubah dari kode aplikasi tanpa memindahkan berkas ke rute SSR
+   (keputusan arsitektur kecil → **OQ 27**). Dampak nyata kecil (8,5 KB),
+   sengaja tidak ditambal diam-diam.
+7. **18.6 Transisi aktivitas**: server median 20 ms (17–36 ms) untuk 5×
+   POST attempt; di browser sungguhan klik jawaban → feedback "✓ Benar!"
+   tampil dalam **76 ms**. Jauh di bawah ambang 500 ms.
+8. **18.7 Memori (proxy, jujur)**: QA E2E eksploratif memakai browser sesi
+   (bukan perangkat rendah sungguhan). Tercatat: JS heap ~9,5 MB stabil
+   (tidak naik antar navigasi), DOM 48–89 elemen per halaman anak. Ini
+   **bukti ringan-hati, bukan** bukti di HP kelas bawah — pengukuran
+   perangkat nyata butuh perangkat fisik (tidak tersedia di cron).
+9. **18.8 Tablet**: viewport 768px — child home, layar aktivitas, dan
+   dashboard orang tua semuanya `scrollWidth == 768` (tanpa overflow),
+   load 25–61 ms, DOM ringan. Gate 390px juga lolos (scrollWidth 390).
+10. **Anti-slop**: tidak ada layar baru di run ini → **checklist layar
+    dilewati (tanpa layar baru)**; `npx -y @google/design.md lint DESIGN.md`
+    tetap dijalankan → **0 error, 0 warning**.
+11. **Verifikasi**: `npm test` 258 pass, `tsc --noEmit` bersih,
+    `npm run build` hijau, `npm run perf` → **PERF_OK**,
+    `smoke-loop`/`smoke-reviewer` tetap hijau.
+
 ## Untuk run berikutnya
+
+- **Semua fase kini berhenti di keputusan produk / review Arsyad** — tidak
+  ada lagi langkah VRD yang aman dikerjakan otomatis tanpa mengarang
+  perilaku. Antrean yang menunggu Arsyad:
+  - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
+    jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
+  - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).
+  - **OQ 18/5/14** — halaman audio & privasi (10.7/10.8/10.10, 14.1–14.3).
+  - **OQ 23** — ambang mastery / dasar rekomendasi bergeser (9.6).
+  - **OQ 26** — provider/model AI untuk generate batch draf (12.2).
+  - **OQ 2** — deployment target (Phase 19). **OQ 27** — header cache
+    aset `public/` (temuan 18.5, dampak kecil).
+- **Verifikasi ulang tiap run**: `npm test && ./node_modules/.bin/tsc --noEmit && npm run build && node scripts/smoke-loop.mjs && node scripts/smoke-reviewer.mjs && npm run perf` (harus `SMOKE_LOOP_OK` + `SMOKE_REVIEWER_OK` + `PERF_OK`).
+- Kalau tidak ada yang berubah sejak run terakhir → jawab `[SILENT]`.
+
+## Catatan run sebelumnya (arsip)
 
 - **Loop belajar utuh & terverifikasi E2E (2026-10-06)** — OQ 19 selesai,
   Phase 7.5/7.6/7.7 tutup. Verifikasi ulang dengan `npm run build &&`
