@@ -1,0 +1,180 @@
+---
+/**
+ * Data & Privasi (VRD 10.10) — placeholder menunggu keputusan produk (OQ 5, OQ 14).
+ * PRD §14: inventaris field anak minimal, data anak tidak publik, retensi terdokumentasi.
+ * Kebijakan retensi/penghapusan permanen & unduh data belum ditetapkan (OQ 14).
+ */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { parentIdOf } from "../../../lib/children/api.ts";
+
+const parentIdResult = parentIdOf(Astro);
+if (parentIdResult instanceof Response) {
+  return Astro.redirect("/login");
+}
+---
+
+<BaseLayout title="Data & Privasi" mode="parent">
+  <p class="back-link">
+    <a href="/parent">← Kembali ke Area Orang Tua</a>
+  </p>
+
+  <header class="page-header">
+    <h1>Data & Privasi</h1>
+    <p class="subtitle">Lihat data yang disimpan dan kelola akun.</p>
+  </header>
+
+  <section class="section" aria-label="Inventaris data anak">
+    <h2>Data yang disimpan</h2>
+    <p class="section-desc">
+      Aplikasi ini hanya menyimpan data minimal untuk kebutuhan belajar (PRD §8, §14):
+    </p>
+    <ul class="data-list">
+      <li><strong>Akun orang tua:</strong> email (hash), kata sandi (hash), preferensi sesi.</li>
+      <li><strong>Profil anak:</strong> nama panggilan, usia (3–7), avatar non-hidup, bahasa, tujuan belajar (teks bebas). <em>Tanpa nama lengkap, tanggal lahir, alamat, telepon, lokasi.</em></li>
+      <li><strong>Progress belajar:</strong> jawaban aktivitas (benar/salah), durasi sesi, area & skill yang dipraktikkan.</li>
+      <li><strong>Log audit:</strong> transisi status konten, aksi orang tua (tanpa PII anak).</li>
+    </ul>
+    <p class="data-note">Tidak ada library tracking/analytics pihak ketiga. Tidak ada tautan eksternal di mode anak.</p>
+  </section>
+
+  <section class="section" aria-label="Kelola akun">
+    <h2>Kelola Akun</h2>
+    <div class="actions-grid">
+      <article class="action-card">
+        <h3>Unduh Data Saya</h3>
+        <p class="action-desc">Ekspor seluruh data akun dan anak dalam format terstruktur.</p>
+        <span class="coming-soon">Belum tersedia</span>
+        <p class="action-note">Menunggu keputusan format & cakupan ekspor (OQ 14).</p>
+      </article>
+      <article class="action-card danger">
+        <h3>Hapus Akun Permanen</h3>
+        <p class="action-desc">Hapus akun orang tua, seluruh profil anak, dan riwayat belajar.</p>
+        <span class="error-note">Belum tersedia</span>
+        <p class="action-note">Butuh alur konfirmasi berlapis & kebijakan retensi (OQ 5, OQ 14).</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" aria-label="Kebijakan privasi">
+    <h2>Kebijakan & Retensi</h2>
+    <ul class="policy-list">
+      <li>Data anak <strong>tidak pernah publik</strong> — setiap akses melewati kepemilikan orang tua (VRD 3.7).</li>
+      <li>Profil diarsipkan disembunyikan dari alur belajar, riwayat tetap tersimpan.</li>
+      <li>Penghapusan permanen (saat tersedia) menghapus seluruh jejak — tanpa pemulihan.</li>
+      <li>Detail retensi & penghapusan terdokumentasi di <code>PRIVACY-AUDIT.md</code> (OQ 14 terbuka).</li>
+    </ul>
+  </section>
+</BaseLayout>
+
+<style>
+  .back-link {
+    margin-bottom: var(--sp-5);
+    font-size: var(--fs-sm);
+  }
+  .back-link a {
+    color: var(--c-deep-green);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-min);
+  }
+  .back-link a:hover { text-decoration: underline; }
+
+  .page-header {
+    margin-bottom: var(--sp-8);
+    text-align: center;
+  }
+  .page-header h1 { font-size: var(--fs-2xl); margin-bottom: var(--sp-2); }
+  @media (min-width: 768px) { .page-header h1 { font-size: var(--fs-3xl); } }
+  .subtitle { color: var(--c-muted-ink); font-size: var(--fs-lg); max-width: 50ch; margin-inline: auto; }
+
+  .section {
+    margin-bottom: var(--sp-10);
+    background: var(--c-warm-white);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-6);
+  }
+  .section h2 { font-size: var(--fs-xl); margin-bottom: var(--sp-3); }
+  .section-desc { color: var(--c-muted-ink); margin-bottom: var(--sp-4); }
+
+  .data-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .data-list li { color: var(--c-ink); line-height: 1.6; }
+  .data-list em { color: var(--c-muted-ink); font-size: var(--fs-sm); }
+  .data-note {
+    margin-top: var(--sp-4);
+    padding: var(--sp-3);
+    background: var(--c-soft-blue);
+    border-radius: var(--r-control);
+    color: var(--c-deep-green);
+    font-size: var(--fs-sm);
+    text-align: center;
+  }
+
+  .actions-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-4);
+  }
+  @media (min-width: 768px) {
+    .actions-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .action-card {
+    background: var(--c-neutral);
+    border: var(--border-subtle);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-5);
+    text-align: center;
+  }
+  .action-card h3 { font-size: var(--fs-lg); margin-bottom: var(--sp-2); }
+  .action-desc { color: var(--c-muted-ink); font-size: var(--fs-sm); margin-bottom: var(--sp-3); }
+  .coming-soon {
+    display: inline-block;
+    padding: var(--sp-2) var(--sp-4);
+    background: var(--c-soft-blue);
+    color: var(--c-deep-green);
+    border-radius: var(--r-pill);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    margin-bottom: var(--sp-3);
+  }
+  .action-note { color: var(--c-muted-ink); font-size: var(--fs-xs); margin: 0; }
+
+  .policy-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .policy-list li { color: var(--c-ink); line-height: 1.6; }
+  .policy-list code {
+    background: var(--c-soft-green);
+    color: var(--c-deep-green);
+    padding: 0.1em 0.4em;
+    border-radius: var(--r-control);
+    font-size: var(--fs-xs);
+  }
+
+  /* error-note component (DESIGN.md) — sudah terpakai di form lain, pastikan tersedia di halaman ini */
+  .error-note {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--c-soft-peach);
+    color: var(--c-ink);
+    border-radius: var(--r-control);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+  }
+</style>
