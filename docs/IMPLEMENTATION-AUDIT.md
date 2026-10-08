@@ -74,7 +74,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
 | 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15 |
-| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts` |
+| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts` |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
@@ -517,6 +517,31 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    deploy (bergantung OQ 2). Aset ber-hashed `/_astro/*` sudah `immutable`
    1 tahun — tidak ada masalah di sana. Keputusan ditahan; jangan diubah
    diam-diam.
+
+28. **Hierarki aksi ganda di layar orang tua (temuan QA 2026-10-08)**:
+   `/parent/anak/:id` merender dua `btn-primary` pada layar yang sama —
+   "Buka layar belajar" (header) dan "Mulai Aktivitas Ini" (bagian saran
+   latihan) — padahal DESIGN.md menetapkan `button-primary` sebagai
+   satu-satunya aksi high-emphasis per layar. Lima layar reviewer sudah
+   diperbaiki pada run itu; layar orang tua sengaja **tidak** diubah karena
+   pilihannya menyangkut penekanan produk (PRD §12 meminta dashboard
+   memprioritaskan "what to practice next" → rekomendasi layak jadi
+   primary, tetapi header CTA itu pintu utama orang tua ke layar belajar).
+   Rekomendasi: pertahankan "Mulai Aktivitas Ini" sebagai primary,
+   turunkan "Buka layar belajar" ke `btn-secondary`, lalu verifikasi lewat
+   QA E2E eksploratif layar orang tua (butuh sesi orang tua di QA server).
+   Konfirmasi atau ubah.
+
+29. **Transisi status memuat ulang halaman — edit belum tersimpan hilang
+   diam-diam (temuan QA 2026-10-08)**: `ReviewFlowPanel` memanggil
+   `window.location.reload()` setelah transisi sukses (Keputusan Phase 11
+   lanjutan no. 4), sedangkan formulir edit di layar yang sama belum tentu
+   sudah disimpan. Karena itu hierarki run ini menjadikan "Simpan
+   Perubahan" satu-satunya aksi primary (lihat "Keputusan — QA E2E
+   eksploratif layar reviewer"). Yang belum diputuskan: apakah perlu
+   guard produk (peringatan "ada perubahan belum disimpan" sebelum
+   transisi, atau simpan otomatis) — perilaku baru, jangan ditambahkan
+   tanpa konfirmasi.
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -980,9 +1005,12 @@ Konteks: mesin ringkasan 9.8 sudah ada tanpa UI; langkah aman menunjuk
 - **Verifikasi**: 216 test hijau, `tsc --noEmit` bersih, `npm run build` hijau,
   `npx -y @google/design.md lint DESIGN.md` **0 error / 0 warning**, QA E2E HTTP
   24/24 (gerbang sesi + login publik, 8 panel ter-render, buka→ubah→hapus,
-  tautan area dashboard). **Belum diuji di browser sungguhan** — server preview
-  tidak terjangkau dari browser sesi QA, jadi cek 390px/tablet & reduced-motion
-  baru sebatas pemeriksaan kode.
+  tautan area dashboard). ~~**Belum diuji di browser sungguhan**~~ →
+  **SELESAI 2026-10-08**: kelima layar kini diuji di browser sungguhan
+  (390px & 768px) — lihat "Keputusan — QA E2E eksploratif layar reviewer".
+  (Catatan lama: server preview saat itu tidak terjangkau dari browser
+  sesi QA, jadi cek 390px/tablet & reduced-motion baru sebatas pemeriksaan
+  kode.)
 
 ## Keputusan Phase 11 (lanjutan) — transisi status review (VRD 11.11, 2026-10-07)
 
@@ -1337,8 +1365,95 @@ menutupnya sebagai langkah atomik.
    bersih, `npm run build` hijau, `npm run perf` → **PERF_OK**,
    `smoke-loop` → **SMOKE_LOOP_OK**, `smoke-reviewer` → **SMOKE_REVIEWER_OK**.
 
+## Keputusan — QA E2E eksploratif layar reviewer (2026-10-08)
+
+Konteks: catatan Phase 11 masih berbunyi *"**Belum diuji di browser sungguhan**
+— cek 390px/tablet & reduced-motion baru sebatas pemeriksaan kode"* untuk
+layar daftar/buat/edit/impor/pratinjau. Run ini menutup celah itu sebagai
+langkah verifikasi (VRD 16.10/16.11 viewport + 17.1/17.13 tinjauan visual),
+tanpa keputusan produk baru.
+
+1. **Alat ukur tetap, bukan sesi sekali pakai**: `scripts/qa-server.mjs`
+   (`npm run build && node scripts/qa-server.mjs`) menyalakan server hasil
+   build + database segar (`.data/qa-server-pglite`), menanam akun reviewer
+   fixture (nama samaran, localhost) + dua aktivitas (satu `DRAFT`, satu
+   `PUBLISHED` lewat matriks PRD §7), lalu mencetak baris
+   `QA_SERVER_READY` (port, cookie sesi, id aktivitas) dan tetap hidup
+   sampai dihentikan. Berbeda dari smoke: skrip ini tidak mengakhiri
+   server, jadi peramban QA bisa membuka banyak layar berturut-turut.
+2. **Metode**: cookie sesi dipasang lewat CDP `Network.setCookie` — kata
+   sandi tidak pernah diketik di peramban. Tiap layar dicek di **390px &
+   768px**: `scrollWidth`, elemen yang melewati viewport, target sentuh
+   (tinggi label dipakai sebagai target efektif untuk radio 20×20),
+   `document.getAnimations()`, urutan Tab, teks status, dan empty state;
+   `prefers-reduced-motion` diemulasi lewat `Emulation.setEmulatedMedia`.
+3. **Hasil yang lolos sebelum perbaikan**: kelima layar `scrollWidth` =
+   lebar viewport (390/768), **0 elemen melewati viewport** (skip-link
+   off-screen by design), **0 animasi** di kelima layar, reduced-motion →
+   durasi 0,01ms, status selalu berteks ("Draf"/"Terbit" — bukan warna
+   saja), empty state saringan kosong ada ("0 aktivitas" + h2), urutan Tab
+   logis (skip link → saringan → aksi → daftar), tombol ikon pratinjau
+   punya `aria-label`, dan alur pratinjau utuh di browser: klik jawaban →
+   `POST .../preview` → "✓ Benar!" + penjelasan + "Aktivitas Berikutnya" →
+   kembali ke detail.
+4. **Tiga temuan yang diperbaiki** (melanggar DESIGN.md *"button-primary =
+   satu-satunya aksi high-emphasis per layar"* dan target sentuh ≥44px):
+   - **Daftar aktivitas**: dua `btn-primary` ("+ Buat Aktivitas Baru" +
+     "Impor Draf AI") → impor jadi `btn-secondary` (jalur pendukung).
+   - **Layar edit**: "Kirim untuk review" (panel) bersaing dengan "Simpan
+     Perubahan" (formulir). Kini panel: maju = `btn-secondary`, mundur =
+     `btn-tertiary` (baru: transparan + garis bawah, tinggi 65px), dan
+     `Simpan Perubahan` = satu-satunya primary. **Alasan**: transisi sukses
+     memanggil `window.location.reload()` sehingga edit yang belum
+     disimpan hilang — aksi simpan yang harus menonjol. Keputusan lama
+     "langkah maju `primary`, mundur `secondary`" (Keputusan Phase 11
+     lanjutan no. 1) resmi digantikan di sini; gaya `.btn-primary` yang
+     tak terpakai dibuang dari panel.
+   - **Skip-link** (semua layar): 224×40 → `min-height: var(--touch-min)` =
+     224×44.
+5. **Gerbang regresi baru** `test/anti-slop-action-hierarchy.test.ts`
+   (4 test): daftar maksimal satu `btn-primary` + impor bertanda sekunder,
+   panel tanpa `btn-primary` dengan cabang kelas maju/mundur, tombol simpan
+   tetap primary, skip-link `min-height: var(--touch-min)`; panel juga
+   tetap bebas heksa/durasi ms.
+6. **Temuan yang TIDAK diperbaiki** (dicatat, bukan ditambal diam-diam):
+   - `/parent/anak/:id` juga memuat dua `btn-primary` → **OQ 28**
+     (pilihan penekanan produk + butuh sesi orang tua di QA server).
+   - Transisi status memuat ulang halaman sehingga edit tersimpan yang
+     belum dikirim hilang → **OQ 29** (guard produk, perilaku baru).
+   - Untuk status terkunci (HUMAN_REVIEW/QA_APPROVED/PUBLISHED) layar
+     kini **tanpa `btn-primary` sama sekali** — layar berfungsi
+     informatif, aksi maju tetap tombol berbingkai & aksi mundur
+     berteks-bergaris. Bila dikehendaki aksi maju kembali primary saat
+     terkunci, cukup kembalikan satu cabang kelas (tidak ada perubahan
+     perilaku).
+   - Tautan teks inline di teks bantuan (mis. "contoh batch") 16px tinggi
+     — dikecualikan WCAG 2.5.8 karena inline dalam kalimat.
+7. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — tiga berkas UI
+   berubah (daftar, panel, layout): hierarki kini tepat satu aksi primary
+   per layar reviewer; dekorasi tidak bertambah (0 `@keyframes` baru, 0
+   animasi terukur di 390px & 768px); target sentuh semua ≥44px pada kedua
+   viewport (radio 20×20 berpasangan label 44px); status tetap teks +
+   live region `aria-live`; nilai visual hanya token (panel bebas heksa &
+   durasi ms, diuji tes); tanpa audio; `prefers-reduced-motion` → 0,01ms.
+   `node @google/design.md lint DESIGN.md` → **0 error, 0 warning**
+   (1 info token-summary).
+8. **Verifikasi**: `npm test` **266 pass / 0 fail** (4 baru), `tsc --noEmit`
+   bersih, `npm run build` hijau, `node scripts/smoke-loop.mjs` →
+   **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` →
+   **SMOKE_REVIEWER_OK**, `npm run perf` → **PERF_OK**; QA browser ulang
+   pasca-perbaikan: daftar & edit tepat 1 primary, 0 overflow, 0 animasi di
+   390px & 768px; halaman publik (beranda, login reviewer) tak berubah
+   selain skip-link 44px.
+
 ## Untuk run berikutnya
 
+- **Langkah aman berikutnya: QA E2E eksploratif layar orang tua + OQ 28** —
+  perbaiki hierarki aksi ganda di `/parent/anak/:id` (rekomendasi: demote
+  "Buka layar belajar" ke `btn-secondary`) dengan bukti browser memakai
+  `scripts/qa-server.mjs` yang diperluas (tambah akun orang tua + profil
+  anak + beberapa jawaban). Masih terbuka OQ 29 (guard edit hilang saat
+  transisi status) — butuh konfirmasi karena menyangkut perilaku.
 - **Semua fase kini berhenti di keputusan produk / review Arsyad** — tidak
   ada lagi langkah VRD yang aman dikerjakan otomatis tanpa mengarang
   perilaku. Antrean yang menunggu Arsyad:

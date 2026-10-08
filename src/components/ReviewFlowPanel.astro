@@ -63,11 +63,14 @@ function formatDateTime(value: Date): string {
         ></textarea>
       </div>
 
+      {/* DESIGN.md: button-primary = satu-satunya aksi high-emphasis per layar.
+          Layar edit memakai "Simpan Perubahan" sebagai aksi utama, jadi langkah
+          panel memakai tingkat sekunder (maju) dan tersier (mundur). */}
       <div class="actions">
         {transitions.map((transition) => (
           <button
             type="button"
-            class={transition.kind === "primary" ? "btn-primary" : "btn-secondary"}
+            class={transition.kind === "primary" ? "btn-secondary" : "btn-tertiary"}
             data-transition-to={transition.to}
             data-transition-label={transition.label}
           >
@@ -240,8 +243,8 @@ function formatDateTime(value: Date): string {
     gap: var(--sp-3);
   }
 
-  .btn-primary,
-  .btn-secondary {
+  .btn-secondary,
+  .btn-tertiary {
     display: inline-flex;
     flex-direction: column;
     align-items: flex-start;
@@ -256,13 +259,6 @@ function formatDateTime(value: Date): string {
     cursor: pointer;
   }
 
-  .btn-primary {
-    background: var(--c-deep-green);
-    color: var(--c-warm-white);
-    border: var(--border-subtle);
-    font-weight: 700;
-  }
-
   .btn-secondary {
     background: var(--c-warm-white);
     color: var(--c-deep-green);
@@ -270,14 +266,28 @@ function formatDateTime(value: Date): string {
     font-weight: 600;
   }
 
-  .btn-primary:hover,
+  /* Aksi mundur: paling rendah penekanannya, tetap target sentuh 44px+. */
+  .btn-tertiary {
+    background: transparent;
+    color: var(--c-deep-green);
+    border: none;
+    padding-left: 0;
+    padding-right: 0;
+    font-weight: 600;
+    text-decoration: underline;
+  }
+
   .btn-secondary:hover {
     background: var(--c-soft-green);
     color: var(--c-deep-green);
   }
 
-  .btn-primary:disabled,
-  .btn-secondary:disabled {
+  .btn-tertiary:hover {
+    color: var(--c-ink);
+  }
+
+  .btn-secondary:disabled,
+  .btn-tertiary:disabled {
     opacity: 0.7;
     cursor: progress;
   }

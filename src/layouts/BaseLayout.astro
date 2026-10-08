@@ -49,6 +49,10 @@ const { title = "Aplikasi Belajar", mode = "parent" } = Astro.props;
         position: absolute;
         left: -9999px;
         top: 0;
+        /* Target sentuh minimum (DESIGN.md: ≥44px) walau tampil hanya saat fokus. */
+        display: inline-flex;
+        align-items: center;
+        min-height: var(--touch-min);
         background: var(--c-deep-green);
         color: var(--c-warm-white);
         padding: var(--sp-2) var(--sp-4);

@@ -85,8 +85,10 @@ const dateFormatter = new Intl.DateTimeFormat("id-ID", {
   </form>
 
   <div class="list-actions">
+    {/* DESIGN.md: button-primary = satu-satunya aksi high-emphasis per layar —
+        impor adalah jalur pendukung, jadi memakai aksi sekunder. */}
     <a class="btn-primary" href="/reviewer/aktivitas/baru">+ Buat Aktivitas Baru</a>
-    <a class="btn-primary" href="/reviewer/aktivitas/impor">Impor Draf AI</a>
+    <a class="btn-secondary" href="/reviewer/aktivitas/impor">Impor Draf AI</a>
     <p class="count" role="status">{total} aktivitas</p>
   </div>
 
