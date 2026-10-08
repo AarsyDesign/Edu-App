@@ -8,6 +8,8 @@
  * Isi awal database segar:
  *   - satu akun reviewer (fixture nama samaran, hanya untuk server localhost)
  *   - dua aktivitas: satu DRAFT, satu PUBLISHED (lewat matriks PRD §7)
+ *   - satu akun orang tua + dua profil anak (satu berisi riwayat jawaban,
+ *     satu kosong untuk empty state) — QA E2E eksploratif layar orang tua
  *
  * Pemakaiannya:
  *   npm run build && node scripts/qa-server.mjs
@@ -81,39 +83,43 @@ for (let i = 0; i < 60; i += 1) {
 
 // --- login reviewer + tanam aktivitas contoh lewat API sungguhan ------------
 const jar = new Map();
-function absorbCookies(res) {
+function absorbCookies(jarMap, res) {
   const list = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
   for (const c of list) {
     const [pair] = c.split(";");
     const idx = pair.indexOf("=");
     const k = pair.slice(0, idx).trim();
     const v = pair.slice(idx + 1);
-    if (v === "" || /expires=Thu, 01 Jan 1970/i.test(v)) jar.delete(k);
-    else jar.set(k, v);
+    if (v === "" || /expires=Thu, 01 Jan 1970/i.test(c)) jarMap.delete(k);
+    else jarMap.set(k, v);
   }
 }
-const cookieHeader = () =>
-  [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+const cookieHeader = (jarMap) =>
+  [...jarMap.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
 
-async function call(method, reqPath, body) {
-  const res = await fetch(origin + reqPath, {
-    method,
-    headers: {
-      "content-type": "application/json",
-      origin,
-      ...(jar.size ? { cookie: cookieHeader() } : {}),
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    redirect: "manual",
-  });
-  absorbCookies(res);
-  const text = await res.text();
-  try {
-    return { status: res.status, body: JSON.parse(text) };
-  } catch {
-    return { status: res.status, body: text };
-  }
+/** Panggilan HTTP dengan cookie jar sendiri (satu per peran: reviewer / orang tua). */
+function callerFor(jarMap) {
+  return async function call(method, reqPath, body) {
+    const res = await fetch(origin + reqPath, {
+      method,
+      headers: {
+        "content-type": "application/json",
+        origin,
+        ...(jarMap.size ? { cookie: cookieHeader(jarMap) } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      redirect: "manual",
+    });
+    absorbCookies(jarMap, res);
+    const text = await res.text();
+    try {
+      return { status: res.status, body: JSON.parse(text) };
+    } catch {
+      return { status: res.status, body: text };
+    }
+  };
 }
+const call = callerFor(jar);
 
 const login = await call("POST", "/api/reviewer/auth/login", {
   email: "peninjau@contoh.test",
@@ -170,12 +176,79 @@ for (const to of ["HUMAN_REVIEW", "QA_APPROVED", "PUBLISHED"]) {
   }
 }
 
+// --- akun orang tua + profil anak + riwayat jawaban (QA layar orang tua) ----
+// Fixture nama samaran, hanya untuk server localhost ini. Semua lewat API
+// sungguhan (register → profil → sesi → jawaban → tutup sesi), bukan tulisan
+// langsung ke database, supaya QA menguji jalur yang sama dengan produksi.
+const parentJar = new Map();
+const pcall = callerFor(parentJar);
+
+const parentReg = await pcall("POST", "/api/auth/register", {
+  email: "orangtua@contoh.test",
+  displayName: "Orangtua QA",
+  password: "sand1-kuat-99",
+});
+if (parentReg.status !== 201 || !parentJar.has("edu_session")) {
+  throw new Error(`register orang tua gagal: ${parentReg.status} ${JSON.stringify(parentReg.body)}`);
+}
+
+const childRes = await pcall("POST", "/api/children", { nickname: "Rania", age: 5 });
+if (childRes.status !== 201) {
+  throw new Error(`profil anak gagal: ${JSON.stringify(childRes.body)}`);
+}
+const childId = childRes.body?.child?.childId;
+if (typeof childId !== "string") throw new Error("childId tidak terbentuk");
+
+// Profil kedua tanpa riwayat — untuk menguji empty state ringkasan anak.
+const emptyChildRes = await pcall("POST", "/api/children", { nickname: "Dimas", age: 4 });
+if (emptyChildRes.status !== 201) {
+  throw new Error(`profil anak kedua gagal: ${JSON.stringify(emptyChildRes.body)}`);
+}
+const emptyChildId = emptyChildRes.body?.child?.childId;
+
+/** Buka sesi lewat endpoint sesungguhnya, jawab, lalu tutup sesi. */
+async function recordSession(answers) {
+  const start = await pcall("POST", "/api/session/start", {
+    childId,
+    activityId: publishedId,
+    learningAreaId: skill.learning_area_id,
+  });
+  if (start.status !== 201 && start.status !== 200) {
+    throw new Error(`session/start gagal: ${JSON.stringify(start.body)}`);
+  }
+  const sessionId = start.body?.sessionId;
+  for (const answer of answers) {
+    const attempt = await pcall("POST", "/api/activity/attempt", {
+      childId,
+      activityId: publishedId,
+      sessionId,
+      answer,
+      durationMs: 4000,
+    });
+    if (attempt.status !== 201) {
+      throw new Error(`attempt gagal: ${JSON.stringify(attempt.body)}`);
+    }
+  }
+  const done = await pcall("POST", "/api/session/complete", { sessionId, childId });
+  if (done.status !== 200) {
+    throw new Error(`session/complete gagal: ${JSON.stringify(done.body)}`);
+  }
+  return sessionId;
+}
+
+// TRUE_FALSE aktivitas terbit: jawaban `true` benar, `false` salah.
+await recordSession([true, false]);
+await recordSession([true]);
+
 console.log(
   [
     "QA_SERVER_READY",
     `port=${PORT}`,
     `origin=${origin}`,
-    `cookie=${cookieHeader()}`,
+    `cookie=${cookieHeader(jar)}`,
+    `parentCookie=${cookieHeader(parentJar)}`,
+    `childId=${childId}`,
+    `emptyChildId=${emptyChildId}`,
     `draftId=${draft.body.activityId}`,
     `publishedId=${publishedId}`,
     `db=${DB_DIR}`,

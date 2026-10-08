@@ -74,7 +74,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
 | 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15 |
-| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts` |
+| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
@@ -518,19 +518,18 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    1 tahun — tidak ada masalah di sana. Keputusan ditahan; jangan diubah
    diam-diam.
 
-28. **Hierarki aksi ganda di layar orang tua (temuan QA 2026-10-08)**:
+28. ~~**Hierarki aksi ganda di layar orang tua (temuan QA 2026-10-08)**:
    `/parent/anak/:id` merender dua `btn-primary` pada layar yang sama —
    "Buka layar belajar" (header) dan "Mulai Aktivitas Ini" (bagian saran
    latihan) — padahal DESIGN.md menetapkan `button-primary` sebagai
-   satu-satunya aksi high-emphasis per layar. Lima layar reviewer sudah
-   diperbaiki pada run itu; layar orang tua sengaja **tidak** diubah karena
-   pilihannya menyangkut penekanan produk (PRD §12 meminta dashboard
-   memprioritaskan "what to practice next" → rekomendasi layak jadi
-   primary, tetapi header CTA itu pintu utama orang tua ke layar belajar).
-   Rekomendasi: pertahankan "Mulai Aktivitas Ini" sebagai primary,
-   turunkan "Buka layar belajar" ke `btn-secondary`, lalu verifikasi lewat
-   QA E2E eksploratif layar orang tua (butuh sesi orang tua di QA server).
-   Konfirmasi atau ubah.
+   satu-satunya aksi high-emphasis per layar.~~ → **SELESAI 2026-10-08**
+   (lihat "Keputusan — QA E2E eksploratif layar orang tua + penutupan
+   OQ 28"): rekomendasi dieksekusi persis — "Mulai Aktivitas Ini" tetap
+   primary (PRD §12 *what to practice next*), "Buka layar belajar" turun ke
+   `btn-secondary`, diverifikasi browser di 390px & 768px (tepat 1 primary
+   per layar) dan dikunci test baru. Empty state ("Mulai Belajar") tetap
+   primary di cabang `hasData` yang berbeda — keduanya tidak pernah tampil
+   bersamaan.
 
 29. **Transisi status memuat ulang halaman — edit belum tersimpan hilang
    diam-diam (temuan QA 2026-10-08)**: `ReviewFlowPanel` memanggil
@@ -542,6 +541,23 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    guard produk (peringatan "ada perubahan belum disimpan" sebelum
    transisi, atau simpan otomatis) — perilaku baru, jangan ditambahkan
    tanpa konfirmasi.
+
+30. **Kontras banner offline di child home (temuan QA layar orang tua,
+   2026-10-08)**: `.offline-banner` (`src/pages/learn.astro`) memakai
+   latar `--c-warning` dengan teks `--c-warm-white` → **2,91:1** (jauh di
+   bawah WCAG AA 4,5:1); bahkan teks `--c-ink` di atas warning hanya
+   **4,43:1**, jadi tidak ada token teks yang lolos di latar warning mana
+   pun (dihitung node, bukan perkiraan). DESIGN.md membatasi warning
+   untuk *status indicators (dots, icons, fills), always paired with
+   text* — bukan latar teks. Temuan ini muncul saat menghitung kontras
+   hover kartu profil pada run ini (hover itu sendiri sudah diperbaiki).
+   Rekomendasi: pindahkan latar banner ke permukaan tint — mis.
+   `--c-soft-peach` + teks `--c-ink` = **10,07:1**, mengikuti pola
+   `error-note` — lalu kunci dengan tes kontras. Sengaja **tidak** diubah
+   diam-diam di run ini: run ini fokus layar orang tua, dan pilihan
+   permukaan banner menyangkut bahasa status anak. (Catatan:
+   `test/color-contrast.test.ts` kini hanya mengunci muted-ink/ink; belum
+   ada gerbang yang memindai pasangan background+color di seluruh `src/`.)
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -1446,14 +1462,72 @@ tanpa keputusan produk baru.
    390px & 768px; halaman publik (beranda, login reviewer) tak berubah
    selain skip-link 44px.
 
+## Keputusan — QA E2E eksploratif layar orang tua + penutupan OQ 28 (2026-10-08)
+
+Konteks: langkah yang tercatat pada run sebelumnya — perbaikan hierarki
+aksi ganda di `/parent/anak/:id` (OQ 28) dibuktikan di peramban memakai
+`scripts/qa-server.mjs` yang diperluas.
+
+1. **QA server kini menanam fikstur orang tua lewat API sungguhan**:
+   register akun orang tua (nama samaran, hanya localhost) → dua profil
+   anak ("Rania" berisi riwayat, "Dimas" kosong untuk empty state) → dua
+   sesi belajar pada aktivitas PUBLISHED (3 jawaban: 2 benar, 1 salah)
+   ditutup lewat `/api/session/complete`. Cookie sesi orang tua, `childId`,
+   dan `emptyChildId` dicetak di baris `QA_SERVER_READY` sehingga peramban
+   QA memakai sesi sungguhan **tanpa mengetik kata sandi**. Jar cookie
+   dipisah per peran (reviewer / orang tua) lewat pabrik `callerFor()`.
+2. **OQ 28 ditutup — "Buka layar belajar" turun ke `btn-secondary`**
+   (warm-yellow + teks `--c-ink`, 10,52:1), sesuai
+   rekomendasi yang tertulis: "Mulai Aktivitas Ini" (PRD §12 *what to
+   practice next*) tetap satu-satunya aksi high-emphasis layar. Empty state
+   "Mulai Belajar" tetap primary di cabang `hasData` yang berbeda — keduanya
+   tidak pernah tampil bersamaan, jadi layar selalu tepat satu primary.
+3. **Temuan kedua saat QA: hover `btn-secondary` kartu profil memakai
+   latar `--c-warning` → teks `--c-ink` hanya 4,43:1 (gagal AA 4,5:1)**.
+   Baik di kartu profil maupun di ringkasan anak, hover kini memakai
+   cincin inset `--c-ink` (token-only; teksnya tetap 10,52:1). Tidak ada
+   pasangan teks–latar yang lolos 4,5:1 di atas warning, jadi warning tetap
+   untuk dot/ikon/fill sesuai DESIGN.md.
+4. **Bukti browser (QA E2E eksploratif, server hasil build :4404, sesi
+   dipasang via CDP `Network.setCookie`)** — ketiga layar (`/parent`,
+   ringkasan berdata, ringkasan kosong) pada **390px & 768px**:
+   `scrollWidth` = viewport, **0 elemen melewati viewport**, **0 animasi**,
+   target sentuh ≥44px (semua tombol 44px), **tepat 1 `btn-primary` per
+   layar** ("+ Tambah Anak" / "Mulai Aktivitas Ini" / "Mulai Belajar"),
+   urutan Tab logis (skip link → Kembali → sekunder → primary) dengan
+   outline fokus terlihat, kontras dihitung dari computed style (primary
+   9,88:1 · sekunder 10,52:1 · fakta 9,88:1), `prefers-reduced-motion` →
+   transisi 0,01ms. Fungsional: klik "Mulai Aktivitas Ini" → layar
+   aktivitas dengan sesi terbuka, klik "Buka layar belajar" →
+   `/learn?child=`, catatan "Ada 1 sesi yang belum ditutup." tampil dengan
+   benar, dan empty state memuat teks + satu aksi.
+5. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — checklist untuk
+   tiga layar yang tersentuh: hierarki kini tepat satu primary per layar;
+   dekorasi tidak bertambah (0 `@keyframes` baru, 0 animasi terukur);
+   target sentuh ≥44px terukur; status teks, bukan warna; nilai visual
+   hanya token (tes menolak hex & durasi ms di blok style); audio tidak
+   ada; reduced-motion 0,01ms; lolos 390px & 768px. `npm run design:lint`
+   → **0 error, 0 warning** (1 info ringkasan token).
+6. **Verifikasi**: `npm test` **268 pass / 0 fail** (2 baru di
+   `test/anti-slop-action-hierarchy.test.ts`), `tsc --noEmit` bersih,
+   `npm run build` hijau, `node scripts/smoke-loop.mjs` →
+   **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` →
+   **SMOKE_REVIEWER_OK**, `npm run perf` → **PERF_OK**.
+
 ## Untuk run berikutnya
 
-- **Langkah aman berikutnya: QA E2E eksploratif layar orang tua + OQ 28** —
-  perbaiki hierarki aksi ganda di `/parent/anak/:id` (rekomendasi: demote
-  "Buka layar belajar" ke `btn-secondary`) dengan bukti browser memakai
-  `scripts/qa-server.mjs` yang diperluas (tambah akun orang tua + profil
-  anak + beberapa jawaban). Masih terbuka OQ 29 (guard edit hilang saat
-  transisi status) — butuh konfirmasi karena menyangkut perilaku.
+- **Langkah aman berikutnya: OQ 30 — perbaiki kontras banner offline**
+  (`src/pages/learn.astro`: latar `--c-warning` + teks `--c-warm-white` =
+  2,91:1). Rekomendasi sudah tertulis: pindah ke permukaan tint
+  `--c-soft-peach` + teks `--c-ink` = 10,07:1 (pola `error-note`), kunci
+  dengan tes kontras di `test/color-contrast.test.ts`, lalu buktikan di
+  peramban (Emulation offline) pada 390px & 768px. Perbaikan murni warna
+  lewat token, tanpa perilaku baru — jalur aman. QA server fikstur orang
+  tua (`scripts/qa-server.mjs`) siap dipakai ulang bila perlu memeriksa
+  layar anak dengan sesi sungguhan.
+- **OQ 29 (guard "ada perubahan belum disimpan" sebelum transisi status
+  reviewer) tetap menunggu konfirmasi** — menyangkut perilaku, bukan
+  kosmetik.
 - **Semua fase kini berhenti di keputusan produk / review Arsyad** — tidak
   ada lagi langkah VRD yang aman dikerjakan otomatis tanpa mengarang
   perilaku. Antrean yang menunggu Arsyad:

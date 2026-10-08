@@ -125,7 +125,9 @@ const skillLabels: ReadonlyMap<string, SkillLabel> =
       </section>
 
       <p class="cta">
-        <a class="btn-primary" href={learnUrl}>Buka layar belajar</a>
+        {/* OQ 28: turunkan ke sekunder — "Mulai Aktivitas Ini" (saran latihan)
+            adalah aksi high-emphasis tunggal layar ini (DESIGN.md). */}
+        <a class="btn-secondary" href={learnUrl}>Buka layar belajar</a>
       </p>
 
       {sessionDetails.length > 0 && (
@@ -399,6 +401,33 @@ const skillLabels: ReadonlyMap<string, SkillLabel> =
     background: var(--c-ink);
   }
   .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  /* Aksi sekunder (DESIGN.md button-secondary = warm yellow + teks ink).
+     Hover memakai cincin inset --c-ink, bukan perubahan latar: latar
+     --c-warning dengan teks ink hanya 4,43:1 (di bawah WCAG AA). */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-min);
+    padding: 0 var(--sp-6);
+    border-radius: var(--r-card);
+    background: var(--c-warm-yellow);
+    color: var(--c-ink);
+    font-family: var(--font-heading);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: transform var(--dur-tap) var(--ease-out), box-shadow var(--dur-tap) var(--ease-out);
+  }
+  .btn-secondary:hover {
+    box-shadow: inset 0 0 0 2px var(--c-ink);
+  }
+  .btn-secondary:active {
     transform: scale(0.98);
   }
 
@@ -692,7 +721,8 @@ const skillLabels: ReadonlyMap<string, SkillLabel> =
       font-size: var(--fs-xl);
     }
   }
-  .reduce-motion .btn-primary {
+  .reduce-motion .btn-primary,
+  .reduce-motion .btn-secondary {
     transition: none;
   }
 </style>
