@@ -433,8 +433,13 @@ function getActivityVisual(type: string) {
     justify-content: center;
     gap: var(--sp-2);
     padding: var(--sp-3) var(--sp-4);
-    background: var(--c-warning);
-    color: var(--c-warm-white);
+    /* OQ 30: latar --c-warning + teks --c-warm-white hanya 2,91:1 (dan teks
+       ink di atas warning 4,43:1) — keduanya di bawah WCAG AA. DESIGN.md
+       membatasi warning untuk indikator status, bukan latar teks. Permukaan
+       tint soft-peach + teks ink mengikuti pola error-note (10,07:1); status
+       tetap dibawa teks + ikon aria-hidden, bukan warna saja. */
+    background: var(--c-soft-peach);
+    color: var(--c-ink);
     font-size: var(--fs-sm);
     font-weight: 600;
     z-index: 100;

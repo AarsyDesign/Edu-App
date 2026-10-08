@@ -74,7 +74,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
 | 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15 |
-| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA |
+| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
@@ -542,22 +542,22 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
    transisi, atau simpan otomatis) — perilaku baru, jangan ditambahkan
    tanpa konfirmasi.
 
-30. **Kontras banner offline di child home (temuan QA layar orang tua,
+30. ~~**Kontras banner offline di child home (temuan QA layar orang tua,
    2026-10-08)**: `.offline-banner` (`src/pages/learn.astro`) memakai
-   latar `--c-warning` dengan teks `--c-warm-white` → **2,91:1** (jauh di
-   bawah WCAG AA 4,5:1); bahkan teks `--c-ink` di atas warning hanya
-   **4,43:1**, jadi tidak ada token teks yang lolos di latar warning mana
-   pun (dihitung node, bukan perkiraan). DESIGN.md membatasi warning
-   untuk *status indicators (dots, icons, fills), always paired with
-   text* — bukan latar teks. Temuan ini muncul saat menghitung kontras
-   hover kartu profil pada run ini (hover itu sendiri sudah diperbaiki).
-   Rekomendasi: pindahkan latar banner ke permukaan tint — mis.
-   `--c-soft-peach` + teks `--c-ink` = **10,07:1**, mengikuti pola
-   `error-note` — lalu kunci dengan tes kontras. Sengaja **tidak** diubah
-   diam-diam di run ini: run ini fokus layar orang tua, dan pilihan
-   permukaan banner menyangkut bahasa status anak. (Catatan:
-   `test/color-contrast.test.ts` kini hanya mengunci muted-ink/ink; belum
-   ada gerbang yang memindai pasangan background+color di seluruh `src/`.)
+   latar `--c-warning` dengan teks `--c-warm-white` → **2,91:1**; bahkan
+   teks `--c-ink` di atas warning hanya **4,43:1**, jadi tidak ada token
+   teks yang lolos di latar warning mana pun (dihitung node, bukan
+   perkiraan). DESIGN.md membatasi warning untuk *status indicators
+   (dots, icons, fills), always paired with text* — bukan latar teks.
+   Rekomendasi: pindahkan latar banner ke permukaan tint `--c-soft-peach`
+   + teks `--c-ink` = **10,07:1** (pola `error-note`), kunci dengan tes
+   kontras.~~ → **SELESAI 2026-10-08** (lihat "Keputusan — OQ 30" di
+   bawah): banner kini `--c-soft-peach` + `--c-ink` (10,07:1), dikunci
+   dua tes di `test/color-contrast.test.ts` — kunci pasangan banner itu
+   **dan** gerbang baru yang memindai seluruh `src/` untuk pasangan
+   `background`+`color` eksplisit (85 pasangan, semua ≥4,5:1; ≥50 pasangan
+   wajib terdeteksi supaya gerbang tidak bisa lolos membisu). Bukti
+   peramban 390px & 768px dengan emulasi offline.
 
 ## Keputusan Phase 6 — Activity Engine (VRD 6.1–6.15, 2026-10-05)
 
@@ -1514,32 +1514,78 @@ aksi ganda di `/parent/anak/:id` (OQ 28) dibuktikan di peramban memakai
    **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` →
    **SMOKE_REVIEWER_OK**, `npm run perf` → **PERF_OK**.
 
+## Keputusan — OQ 30: banner offline child home (2026-10-08)
+
+Konteks: langkah yang tercatat pada run sebelumnya — perbaiki kontras
+`.offline-banner` (`src/pages/learn.astro`) sesuai rekomendasi yang sudah
+tertulis di OQ 30.
+
+1. **Perbaikan murni warna lewat token, tanpa perilaku baru**: latar
+   `--c-warning` + teks `--c-warm-white` (**2,91:1**) → permukaan tint
+   `--c-soft-peach` + teks `--c-ink` = **10,07:1**, mengikuti pola
+   `error-note` DESIGN.md. Ikon SVG memakai `currentColor` (ikut ink);
+   pasangan `--c-warning` di atas soft-peach hanya **2,27:1** (di bawah
+   ambang non-teks 3:1), jadi warning tidak dipakai sama sekali di
+   banner. DESIGN.md tetap terpenuhi: warning hanya untuk indikator
+   status yang dipasangkan teks — bukan latar teks.
+2. **Status tidak disampaikan lewat warna saja**: pesan teks
+   "Kamu sedang offline. Beberapa fitur mungkin terbatas." + ikon
+   `aria-hidden` sudah membawa maknanya; perubahan warna tidak
+   mengubah bahasa status anak. Tidak ada elemen/markup baru, tidak ada
+   `@keyframes` baru; animasi `slideUp` tetap `--dur-card` (240ms) dan
+   dimatikan oleh `.reduce-motion`.
+3. **Dua gerbang baru di `test/color-contrast.test.ts`**:
+   (a) kunci blok `.offline-banner` persis — wajib `--c-soft-peach` +
+   `--c-ink`, dilarang latar `--c-warning`;
+   (b) **pemindaian seluruh `src/`** untuk pasangan `background`+`color`
+   token eksplisit dalam blok aturan yang sama — 85 pasangan terdeteksi,
+   semuanya ≥4,5:1 (terendah 5,70:1). Ambang deteksi ≥50 pasangan agar
+   perubahan pola pemindaian membuat tes **gagal**, bukan lolos membisu.
+   Catatan jujur: pemindaian hanya menangkap pasangan eksplisit dalam
+   satu blok; teks yang diwarisi dari selektor induk tidak tercakup —
+   celah yang sama dengan catatan lama OQ 30, kini dipersempit.
+4. **Bukti QA E2E eksploratif** (peramban, server `scripts/qa-server.mjs`
+   :4403, sesi orang tua dipasang via CDP `Network.setCookie`, emulasi
+   offline `Network.emulateNetworkConditions`):
+   - `navigator.onLine = false` → banner tampil, computed style
+     `rgb(247, 220, 203)` / `rgb(38, 51, 45)`;
+   - **390px**: banner selebar viewport (0,0–390), `scrollWidth` = 390,
+     **tanpa overflow horizontal**;
+   - **768px**: hal yang sama, banner 768px, tanpa overflow;
+   - kembali online → `banner.hidden = true` lagi (listener `online`
+     bekerja); ukuran teks 14px/600.
+5. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — checklist:
+   hierarki layar tak berubah (banner bukan aksi, `/learn` tetap satu
+   primary); tidak menambah dekorasi (0 elemen, 0 `@keyframes` baru);
+   target sentuh tak relevan (banner non-interaktif); status teks + ikon,
+   bukan warna; nilai visual hanya token; audio tidak ada di layar ini;
+   reduced motion menonaktifkan animasi banner; lolos 390px & 768px.
+   `npm run design:lint` → **0 error, 0 warning** (1 info ringkasan token).
+6. **Verifikasi**: `npm test` **270 pass / 0 fail** (2 tes baru di
+   `test/color-contrast.test.ts`), `tsc --noEmit` bersih, `npm run build`
+   hijau, `node scripts/smoke-loop.mjs` → **SMOKE_LOOP_OK**,
+   `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
+   `npm run perf` → **PERF_OK**.
+
 ## Untuk run berikutnya
 
-- **Langkah aman berikutnya: OQ 30 — perbaiki kontras banner offline**
-  (`src/pages/learn.astro`: latar `--c-warning` + teks `--c-warm-white` =
-  2,91:1). Rekomendasi sudah tertulis: pindah ke permukaan tint
-  `--c-soft-peach` + teks `--c-ink` = 10,07:1 (pola `error-note`), kunci
-  dengan tes kontras di `test/color-contrast.test.ts`, lalu buktikan di
-  peramban (Emulation offline) pada 390px & 768px. Perbaikan murni warna
-  lewat token, tanpa perilaku baru — jalur aman. QA server fikstur orang
-  tua (`scripts/qa-server.mjs`) siap dipakai ulang bila perlu memeriksa
-  layar anak dengan sesi sungguhan.
-- **OQ 29 (guard "ada perubahan belum disimpan" sebelum transisi status
-  reviewer) tetap menunggu konfirmasi** — menyangkut perilaku, bukan
-  kosmetik.
-- **Semua fase kini berhenti di keputusan produk / review Arsyad** — tidak
-  ada lagi langkah VRD yang aman dikerjakan otomatis tanpa mengarang
-  perilaku. Antrean yang menunggu Arsyad:
-  - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
-    jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
+- **OQ 30 selesai (run ini)** — tidak ada lagi langkah VRD yang aman
+  dikerjakan otomatis tanpa mengarang perilaku; semua yang tersisa
+  menunggu keputusan/review Arsyad:
+  - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review
+    manusia; jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
   - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).
   - **OQ 18/5/14** — halaman audio & privasi (10.7/10.8/10.10, 14.1–14.3).
   - **OQ 23** — ambang mastery / dasar rekomendasi bergeser (9.6).
   - **OQ 26** — provider/model AI untuk generate batch draf (12.2).
+  - **OQ 29** — guard "ada perubahan belum disimpan" sebelum transisi
+    status reviewer (perilaku, bukan kosmetik).
   - **OQ 2** — deployment target (Phase 19). **OQ 27** — header cache
     aset `public/` (temuan 18.5, dampak kecil).
-- **Verifikasi ulang tiap run**: `npm test && ./node_modules/.bin/tsc --noEmit && npm run build && node scripts/smoke-loop.mjs && node scripts/smoke-reviewer.mjs && npm run perf` (harus `SMOKE_LOOP_OK` + `SMOKE_REVIEWER_OK` + `PERF_OK`).
+- **Kalau Arsyad menjawab salah satu OQ di atas** → kerjakan item VRD yang
+  terbuka (mis. OQ 16/17 → 8.7 UI baseline; OQ 23 → 9.6; OQ 18/5 → 10.7
+  + 14.1–14.3).
+- **Verifikasi ulang tiap run**: `npm test && ./node_modules/.bin/tsc --noEmit && npm run build && node scripts/smoke-loop.mjs && node scripts/smoke-reviewer.mjs && npm run perf` (harus `SMOKE_LOOP_OK` + `SMOKE_REVIEWER_OK` + `PERF_OK`); lint `npm run design:lint` bila ada sentuhan UI.
 - Kalau tidak ada yang berubah sejak run terakhir → jawab `[SILENT]`.
 
 ## Catatan run sebelumnya (arsip)
