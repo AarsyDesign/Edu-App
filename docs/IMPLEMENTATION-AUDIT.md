@@ -67,7 +67,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; **2026-10-06 (run ini)**: 7.5 halaman detail area (menutup OQ 19) + 7.6/7.7 layar aktivitas interaktif, endpoint `/api/activity/attempt` & `/api/session/complete`, sesi per-tampilan, smoke E2E `SMOKE_LOOP_OK` (23 cek) |
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
-|| 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.7/10.8/10.10 tertahan OQ 18 + OQ 14** (halaman audio & privasi belum ada, keputusan produk belum ada) |
+|| 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.9 kepadatan dashboard ✅ DONE 2026-10-08** (inventaris bagian dikunci gerbang + bukti peramban 390/768px, lihat "Keputusan — VRD 10.9"); **10.7/10.8/10.10 tertahan OQ 18 + OQ 14** (halaman audio & privasi belum ada, keputusan produk belum ada) |
 || 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
 || 12 | AI-Assisted Draft Pipeline | ✅ DONE | 2026-10-07 (run ini) — **12.1** skema batch draf + templat prompt (`docs/AI-DRAFT-SCHEMA.md`, konstanta `AI_DRAFT_SCHEMA_VERSION`/`DRAFT_BATCH_MAX` di `src/lib/activity/ai-draft.ts`); **12.3/12.4** `parseDraftBatch` memvalidasi amplop + tiap draf (divalidasi ulang `parseEditorPayload`), satu draf gagal → batch utuh `400 DRAFT_BATCH_INVALID` "Draf ke-N: …" tanpa tulis apa pun; **12.5** `content_origin` DIPAKSA `AI_DRAFT` (klaim draf tak pernah dibaca); **12.6** `POST /api/reviewer/aktivitas/import` menyimpan batch sebagai `DRAFT` di antrean reviewer + **UI impor** `/reviewer/aktivitas/impor` (tempel JSON/unggah file, validasi client-side, status live region, redirect ke daftar); **12.15** kolom `version` sudah ada & +1 saat edit (Phase 11). **12.2 menunggu OQ 26** (provider/model); 12.7–12.13 = proses review manual memakai checklist CONTENT-SPEC di antrean yang sudah ada |
 | 13 | Seed 100 Activities | 🔒 gate review Arsyad | dilarang ditanam otomatis — impor batch lewat `/reviewer/aktivitas/impor` menunggu konten yang direview manusia (PRD §5/§7) |
@@ -1567,11 +1567,73 @@ tertulis di OQ 30.
    `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
    `npm run perf` → **PERF_OK**.
 
+## Keputusan — VRD 10.9: kepadatan dashboard orang tua (2026-10-08)
+
+Konteks: 10.9 ("Keep dashboard low-density") adalah satu-satunya item VRD yang
+belum tercatat statusnya — dan sifatnya **verifikasi**, bukan perilaku baru,
+sehingga aman dikerjakan otomatis tanpa mengarang keputusan produk.
+
+1. **Bukti peramban (QA E2E eksploratif)** — server hasil build
+   `scripts/qa-server.mjs` (:4406, database segar, sesi orang tua dipasang lewat
+   CDP `Network.setCookie`, layar diukur pada **390px & 768px**):
+   - `/parent` (dashboard): **158 kata terlihat**, 3 bagian (Profil Anak Aktif,
+     Profil Diarsipkan, Pengaturan), tinggi 1.722px @390 (≈2 layar), muat satu
+     layar penuh @768; `scrollWidth = clientWidth` (375 ≤ 390) — **tanpa
+     overflow horizontal**; **tepat 1 `btn-primary`**, 0 `<canvas>`, 0 skrip
+     eksternal, 0 animasi terukur (`document.getAnimations()`), TTFB 20–30ms.
+   - `/parent/anak/:id` (ringkasan berdata): **170 kata**, 5 bagian (3 fakta +
+     Riwayat Sesi + Area Belajar + Kekuatan + Saran Latihan), tinggi 2.344px
+     @390 (≈2,8 layar) karena daftar bertumpuk vertikal; 1 primary; 0 canvas /
+     skrip eksternal / animasi; TTFB 42–56ms.
+   - Ringkasan kosong (anak kedua): **28 kata**, satu layar, satu aksi.
+   - Jujur soal ambang: PRD §22 "parent can understand child status in under
+     30 seconds" **tidak bisa diukur cron** — yang dipakai sebagai proxy: ≤170
+     kata terlihat, tanpa grafik/tabel, tiga fakta + satu aksi ada di awal
+     layar, TTFB < 60ms. Tidak ada angka ambang yang dikarang di test.
+2. **Pemetaan ke PRD §12** (Parent Mode): child profiles ✓ (kartu profil),
+   activities completed ✓ (Jawaban tersimpan), session duration ✓ (Sesi
+   belajar + durasi), skill progress ✓ (Skill dipraktikkan + Area Belajar),
+   recommended practice ✓ (Saran Latihan), settings ✓ (Pengaturan);
+   *audio preference* & *session duration preference* = 10.7/10.8 yang masih
+   tertahan **OQ 18 + OQ 5** (kartunya sudah tampil, halamannya belum — tidak
+   dibangun diam-diam). "Avoid excessive analytics" terpenuhi: tidak ada
+   widget angka selain fakta/riwayat/progress bar.
+3. **Satu temuan copy yang diperbaiki**: kartu Durasi Sesi menulis
+   "(akan hadir di Phase 10)" — **jargon internal roadmap bocor ke layar
+   orang tua** (melanggar *Intentionality/Evidence* skill antislop-ui). Kini
+   hanya "Batas waktu bermain per sesi." + badge "Segera hadir" yang memang
+   sudah ada. Murni copy, tanpa perubahan perilaku/markup/token.
+4. **Gerbang baru `test/parent-dashboard-density.test.ts` (4 test)** — mengunci
+   *inventaris*, bukan angka kabur:
+   - daftar `h2`/`h3` dashboard = persis daftar PRD §12 (menambah panel
+     analytics baru harus mengedit gerbang ini secara sadar);
+   - bagian ringkasan hanya ⊆ {Riwayat Sesi, Area Belajar, Kekuatan, Saran
+     Latihan, Belum ada latihan} + ketiga label `<dt>` wajib ada;
+   - tanpa `<canvas>`/`<iframe>`/penjejak (`gtag|analytics|mixpanel|…`)/URL
+     eksternal/kata kesombongan (leaderboard, peringkat, poin, streak, …);
+   - tanpa jargon internal (`Phase n`, `VRD n`, `OQ n`, `MVP`) di copy kedua
+     layar (komentar dokumen dikecualikan).
+   **Bukti gerbang tidak vakum**: lima mutasi uji (jargon lama, panel
+   `Progres Mingguan` baru, `<canvas>`, "120 poin", `href` eksternal)
+   semuanya **DITOLAK** gerbang, sedangkan berkas asli lolos semua.
+5. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — tidak ada layar
+   baru; checklist dijalankan untuk dua layar yang tersentuh: hierarki tak
+   berubah (tepat 1 primary per layar, terukur di 390/768); dekorasi tidak
+   bertambah (0 `@keyframes`, 0 animasi terukur); target sentuh tak tersentuh;
+   status tetap teks; nilai visual hanya token (tidak ada nilai baru); audio
+   OFF; `prefers-reduced-motion` → 0,01ms; copy tanpa jargon internal.
+   `npm run design:lint` → **0 error, 0 warning** (1 info token-summary).
+6. **Verifikasi**: `npm test` **274 pass / 0 fail** (4 baru), `npx tsc --noEmit`
+   bersih, `npm run build` hijau, `node scripts/smoke-loop.mjs` →
+   **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
+   `npm run perf` → **PERF_OK**.
+
 ## Untuk run berikutnya
 
-- **OQ 30 selesai (run ini)** — tidak ada lagi langkah VRD yang aman
-  dikerjakan otomatis tanpa mengarang perilaku; semua yang tersisa
-  menunggu keputusan/review Arsyad:
+- **VRD 10.9 selesai (run ini, 2026-10-08)** — item terakhir yang bisa
+  dikerjakan tanpa keputusan produk; setelah ini **tidak ada lagi langkah VRD
+  yang aman dikerjakan otomatis** — semua yang tersisa menunggu
+  keputusan/review Arsyad:
   - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review
     manusia; jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
   - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).
