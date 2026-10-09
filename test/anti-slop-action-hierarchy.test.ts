@@ -162,3 +162,54 @@ test("17.x child home: ikon kembali mencapai target sentuh minimum", async () =>
   const primaryCount = (src.match(/class="btn-primary["\s]/g) ?? []).length;
   assert.equal(primaryCount, 1, `child home memakai ${primaryCount} btn-primary, harus tepat 1`);
 });
+
+// ---------------------------------------------------------------------------
+// QA E2E eksploratif dashboard reviewer (2026-10-09) — layar ini satu-satunya
+// yang belum tersentuh peramban; tiga temuan di bawah dikunci di sini.
+// ---------------------------------------------------------------------------
+
+test("17.x dashboard reviewer: satu primary, impor sekunder, label status Indonesia", async () => {
+  const src = await read("../src/pages/reviewer/index.astro");
+
+  // F1 — hierarki aksi: persis pola perbaikan daftar aktivitas (2026-10-08).
+  const primaryCount = (src.match(/class="btn-primary"/g) ?? []).length;
+  assert.equal(primaryCount, 1, `dashboard reviewer memakai ${primaryCount} btn-primary, harus tepat 1`);
+  assert.ok(
+    /<a href="\/reviewer\/aktivitas\/impor" class="btn-secondary">/.test(src),
+    "Impor Draf AI harus aksi sekunder (sama dengan layar daftar)",
+  );
+  assert.ok(
+    /<a href="\/reviewer\/aktivitas\/baru" class="btn-primary">/.test(src),
+    "Buat Aktivitas Baru tetap aksi utama",
+  );
+
+  // F2 — label status memakai sumber tunggal, bukan nama enum Inggris.
+  assert.ok(
+    src.includes('import { getReviewStatusLabel } from "../../lib/activity/reviewer.ts"'),
+    "label status harus lewat getReviewStatusLabel",
+  );
+  for (const status of ["DRAFT", "HUMAN_REVIEW", "QA_APPROVED", "PUBLISHED", "FLAGGED", "UNPUBLISHED"]) {
+    assert.ok(
+      src.includes(`getReviewStatusLabel("${status}")`),
+      `statistik ${status} harus memakai label bersumber tunggal`,
+    );
+  }
+  const markup = src.slice(src.indexOf("<BaseLayout"));
+  for (const english of ["Draft", "QA Approved", "Published", "Flagged", "Unpublished"]) {
+    assert.ok(
+      !new RegExp(`>\\s*${english}\\s*<`).test(markup),
+      `label Inggris "${english}" tidak boleh ada di layar`,
+    );
+  }
+
+  // F3 — judul tab & nama landmark berbahasa Indonesia seperti layar lain.
+  assert.ok(/<BaseLayout title="Area Reviewer"/.test(src), "judul tab harus Indonesia (h1 = Area Reviewer)");
+  assert.ok(!/aria-label="Learning areas"/.test(src), "aria-label Inggris harus diganti");
+  assert.ok(/aria-label="Area belajar"/.test(src), "landmark memakai nama Indonesia");
+
+  // Nilai visual hanya token (blok style halaman).
+  const style = src.slice(src.indexOf("<style>"));
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(style), "warna hardcoded di blok style");
+  assert.ok(!/[0-9]ms\b/.test(style), "durasi ms hardcoded di blok style");
+  assert.ok(style.includes("min-height: var(--touch-min)"), "target sentuh ≥44px");
+});

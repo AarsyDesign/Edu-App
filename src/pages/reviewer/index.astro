@@ -7,6 +7,7 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getDb } from "../../lib/db/index.ts";
 import { listLearningAreas } from "../../lib/learning/areas-skills.ts";
+import { getReviewStatusLabel } from "../../lib/activity/reviewer.ts";
 
 const db = await getDb();
 const areas = await listLearningAreas(db);
@@ -32,7 +33,7 @@ const totalFlagged = statsMap.FLAGGED ?? 0;
 const totalUnpublished = statsMap.UNPUBLISHED ?? 0;
 ---
 
-<BaseLayout title="Reviewer Dashboard" mode="parent">
+<BaseLayout title="Area Reviewer" mode="parent">
   <main class="reviewer-dashboard">
     <header class="dashboard-header">
       <h1>Area Reviewer</h1>
@@ -42,37 +43,37 @@ const totalUnpublished = statsMap.UNPUBLISHED ?? 0;
     <section class="stats-grid" aria-label="Statistik aktivitas">
       <article class="stat-card">
         <span class="stat-value">{totalDraft}</span>
-        <span class="stat-label">Draft</span>
+        <span class="stat-label">{getReviewStatusLabel("DRAFT")}</span>
       </article>
       <article class="stat-card">
         <span class="stat-value">{totalHumanReview}</span>
-        <span class="stat-label">Menunggu Review</span>
+        <span class="stat-label">{getReviewStatusLabel("HUMAN_REVIEW")}</span>
       </article>
       <article class="stat-card">
         <span class="stat-value">{totalQaApproved}</span>
-        <span class="stat-label">QA Approved</span>
+        <span class="stat-label">{getReviewStatusLabel("QA_APPROVED")}</span>
       </article>
       <article class="stat-card">
         <span class="stat-value">{totalPublished}</span>
-        <span class="stat-label">Published</span>
+        <span class="stat-label">{getReviewStatusLabel("PUBLISHED")}</span>
       </article>
       <article class="stat-card">
         <span class="stat-value">{totalFlagged}</span>
-        <span class="stat-label">Flagged</span>
+        <span class="stat-label">{getReviewStatusLabel("FLAGGED")}</span>
       </article>
       <article class="stat-card">
         <span class="stat-value">{totalUnpublished}</span>
-        <span class="stat-label">Unpublished</span>
+        <span class="stat-label">{getReviewStatusLabel("UNPUBLISHED")}</span>
       </article>
     </section>
 
     <section class="actions">
       <a href="/reviewer/aktivitas/baru" class="btn-primary">+ Buat Aktivitas Baru</a>
-      <a href="/reviewer/aktivitas/impor" class="btn-primary">Impor Draf AI</a>
+      <a href="/reviewer/aktivitas/impor" class="btn-secondary">Impor Draf AI</a>
       <a href="/reviewer/aktivitas" class="btn-secondary">Daftar Semua Aktivitas</a>
     </section>
 
-    <section class="areas-overview" aria-label="Learning areas">
+    <section class="areas-overview" aria-label="Area belajar">
       <h2>Area Belajar</h2>
       <div class="areas-grid">
         {areas.map(area => (
