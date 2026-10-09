@@ -5,7 +5,10 @@
  * istilah baru.
  */
 const ACTIVITY_TYPE_LABELS: Record<string, string> = {
-  TAP_ANSWER: "Tukar Jawaban",
+  // Koreksi copy 2026-10-09: "Tukar Jawaban" salah terjemah dari "Tap Answer"
+  // (tukar = menukar, padahal anak memilih satu jawaban) — kini "Pilih Jawaban",
+  // sejajar kata kerja label lain (Hitung Benda, Cocokkan, Urutkan).
+  TAP_ANSWER: "Pilih Jawaban",
   COUNT_OBJECTS: "Hitung Benda",
   MATCH: "Cocokkan",
   SEQUENCE: "Urutkan",

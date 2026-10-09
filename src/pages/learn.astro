@@ -214,8 +214,10 @@ function getActivityVisual(type: string) {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    /* Target sentuh ≥ --touch-min (44px) — QA E2E eksploratif 2026-10-09
+       mengukur 40×40 di 390px & 768px, di bawah ambang DESIGN.md. */
+    width: var(--touch-min);
+    height: var(--touch-min);
     border-radius: var(--r-control);
     background: var(--c-warm-white);
     border: var(--border-subtle);

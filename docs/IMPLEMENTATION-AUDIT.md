@@ -73,7 +73,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 13 | Seed 100 Activities | 🔒 gate review Arsyad | dilarang ditanam otomatis — impor batch lewat `/reviewer/aktivitas/impor` menunggu konten yang direview manusia (PRD §5/§7) |
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
-| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15 |
+| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak" |
 | 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
@@ -1696,10 +1696,85 @@ menutup kelas cacat yang sama.
    hapus permanen (OQ 14). Placeholder sengaja tidak menulis apa pun —
    mengisi preferensi sebelum keputusan produk = mengarang perilaku.
 
+## Keputusan — QA E2E eksploratif layar anak + 4 perbaikan (2026-10-09, run ini)
+
+Konteks: status sebelumnya menyatakan semua sisa fase menunggu keputusan;
+langkah aman yang tersisa adalah **verifikasi loop belajar di peramban**
+(VRD 16.10–16.13 viewport/target sentuh + 17.1/17.13 tinjauan visual) untuk
+layar anak — satu-satunya kelompok layar yang belum pernah diuji sekelas
+QA layar reviewer/orang tua (2026-10-08).
+
+1. **Metode**: `scripts/qa-server.mjs` (port 4408, lalu 4409 setelah build
+   ulang), sesi orang tua + reviewer dipasang via CDP `Network.setCookie`
+   (tanpa mengetik kata sandi), aktivitas TAP_ANSWER diterbitkan lewat matriks
+   PRD §7, empat layar anak diukur pada **390px & 768px**: child home
+   (berdata + kosong), detail area, layar aktivitas TAP_ANSWER dan
+   TRUE_FALSE. Alur dijalankan sungguhan: salah → petunjuk → coba lagi →
+   benar → "Aktivitas Berikutnya".
+2. **Yang lolos tanpa perubahan**: `scrollWidth` = viewport di semua layar
+   kedua viewport; 0 elemen melewati viewport; 0 animasi terukur;
+   `prefers-reduced-motion` → transisi 0,01ms; status selalu teks; tanpa
+   jargon internal; tanpa tautan eksternal di mode anak; kontras dihitung
+   dari computed style (terendah 5,83:1); empty state anak kedua benar;
+   skip-link 44px; loop fungsional utuh.
+3. **Empat temuan yang diperbaiki**:
+   - **F1 — target sentuh**: `.btn-home` child home terukur **40×40px** di
+     390 & 768 (di bawah `--touch-min` 44px, melanggar DESIGN.md *Layout &
+     Spacing*). Kini `width/height: var(--touch-min)`; terukur 44×44.
+   - **F2 — hierarki aksi**: `/learn/area/:code` memasang `.btn-primary`
+     pada setiap baris aktivitas (2 kini; bisa 25 saat Phase 13) — bertentangan
+     dengan *"`button-primary` is the sole high-emphasis action per screen"*.
+     Baris kini memakai `btn-secondary` (warm yellow + ink = **10,52:1**, hover
+     cincin inset `--c-ink` — persis pola kartu profil); halaman jadi **0
+     primary** (konsisten dengan layar daftar/terkunci reviewer), child home
+     tetap tepat 1 primary.
+   - **F3 — penjelasan konten tidak pernah sampai ke anak (VRD 6.12)**:
+     field `explanation` aktivitas ("Umpan balik untuk anak",
+     `docs/AI-DRAFT-SCHEMA.md`; daftar field PRD §7) diteruskan halaman ke
+     `renderActivity({ explanation })` tetapi **renderer tidak pernah
+     memakainya**, dan endpoint hanya mengembalikan teks generik
+     `validateAnswer` — anak melihat "✓ Benar!" lalu "Benar!" (duplikat),
+     bukan "Apel berwarna merah.". Kini modul murni baru
+     `src/lib/activity/feedback.ts` (`feedbackExplanation`) dipakai
+     `/api/activity/attempt` **dan** `/api/reviewer/aktivitas/:id/preview`
+     (pratinjau = umpan balik produksi, acceptance 11.12): penjelasan konten
+     → teks mesin penilaian → jatuh ke rumus lama. Bukti peramban: kedua
+     penjelasan konten tampil pada jawaban benar **dan** salah, hint tetap.
+   - **F4 — copy**: label TAP_ANSWER **"Tukar Jawaban"** (salah terjemah
+     dari "Tap Answer"; tukar = menukar) → **"Pilih Jawaban"** di
+     `labels.ts` + legend panel editor reviewer — tampil di child home,
+     detail area, dan meta layar aktivitas.
+4. **Gerbang regresi (5 test baru)**:
+   - `test/anti-slop-action-hierarchy.test.ts` +2: halaman area wajib 0
+     `btn-primary` & baris memakai sekunder token-only; `.btn-home` wajib
+     `var(--touch-min)` (menolak `width: 40px`) + child home tepat 1 primary.
+   - `test/child-loop-feedback.test.ts` (baru) +3: prioritas penjelasan
+     konten beserta dua jalur jatuh, kedua endpoint wajib lewat
+     `feedbackExplanation` (klausa penolakan `verdict.explanation ?? …`
+     memastikan jalur lama tidak lolos diam-diam), kosakata 8 tipe tanpa
+     enum mentah + kata lama hilang dari src (komentar dikecualikan).
+5. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — checklist untuk
+   tiga layar yang tersentuh: hierarki kini tepat satu aksi high-emphasis per
+   layar anak (area 0 primary, child home 1, layar aktivitas aksi sesudah
+   jawab); dekorasi tidak bertambah (0 `@keyframes` baru, 0 animasi terukur);
+   target sentuh **semua ≥44px terukur di 390 & 768**; status teks, bukan
+   warna; nilai visual hanya token (blok style bebas hex & durasi ms, diuji);
+   tidak ada audio; `prefers-reduced-motion` → 0,01ms; lolos kedua viewport.
+   `npm run design:lint` → **0 error, 0 warning** (1 info ringkasan token).
+6. **Verifikasi**: `npm test` **282 pass / 0 fail** (5 baru), `npx tsc
+   --noEmit` bersih, `npm run build` hijau, `node scripts/smoke-loop.mjs` →
+   **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
+   `npm run perf` → **PERF_OK**.
+7. **Sengaja tidak dikerjakan**: preferensi audio/durasi/retensi (OQ 5/18/14),
+   UI baseline (OQ 16/17), ambang mastery (OQ 23), provider AI (OQ 26),
+   guard perubahan belum disimpan (OQ 29) — tetap menunggu keputusan.
+
 ## Untuk run berikutnya
 
-- **Status 2026-10-09**: tidak ada lagi langkah VRD yang aman dikerjakan
-  otomatis — semua sisa menunggu keputusan/review Arsyad:
+- **Status 2026-10-09 (run ini)**: QA E2E eksploratif **layar anak** selesai
+  (4 temuan diperbaiki, lihat keputusan di atas) — loop belajar kini teruji di
+  peramban seperti layar reviewer/orang tua. Sisanya tetap menunggu
+  keputusan/review Arsyad:
   - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
     jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
   - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).

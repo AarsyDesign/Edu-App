@@ -5,6 +5,10 @@
  * Body: { childId, activityId, sessionId, answer, durationMs? }
  * → 201 { attemptId, attemptNo, correct, explanation, hint? }
  *
+ * `explanation` memakai penjelasan konten (field `explanation` aktivitas,
+ * "umpan balik untuk anak") lebih dulu, lalu teks generik mesin penilaian —
+ * lihat `src/lib/activity/feedback.ts`.
+ *
  * Server-lah yang menilai (VRD 6.9): payload aktivitas dirakit ulang dari
  * database, divalidasi `validateActivityData`, lalu dinilai `validateAnswer`.
  * Jawaban klien tidak pernah dipercaya untuk menentukan kebenaran.
@@ -21,6 +25,7 @@ import { getChildForParent } from "../../../lib/auth/guard.ts";
 import { getPublishedActivityById } from "../../../lib/activity/api.ts";
 import { buildActivityData, loadActivityOptions } from "../../../lib/activity/content.ts";
 import { validateAnswer, type ActivityType } from "../../../lib/activity/domain.ts";
+import { feedbackExplanation } from "../../../lib/activity/feedback.ts";
 import { errorResponse, isSameOrigin, jsonResponse, readJsonBody } from "../../../lib/auth/http.ts";
 
 const ACTIVITY_TYPES = new Set([
@@ -146,7 +151,11 @@ export const POST: APIRoute = async (context) => {
       attemptId: attempt.rows[0].id,
       attemptNo,
       correct: verdict.isCorrect,
-      explanation: verdict.explanation ?? (verdict.isCorrect ? "Tepat sekali!" : "Belum tepat, coba lagi."),
+      explanation: feedbackExplanation(
+        activity.explanation,
+        verdict.explanation,
+        verdict.isCorrect,
+      ),
       ...(verdict.hint ? { hint: verdict.hint } : {}),
     },
     201,

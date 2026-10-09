@@ -124,3 +124,41 @@ test("17.x kartu profil: hover aksi sekunder tidak memakai latar warning", async
     "hover sekunder memakai cincin --c-ink (token)",
   );
 });
+
+// ---------------------------------------------------------------------------
+// QA E2E eksploratif layar anak (2026-10-09)
+// ---------------------------------------------------------------------------
+
+test("17.x halaman detail area: baris aktivitas memakai sekunder, tanpa primary", async () => {
+  const src = await read("../src/pages/learn/area/[code].astro");
+  const primaryCount = (src.match(/class="btn-primary["\s]/g) ?? []).length;
+  assert.equal(
+    primaryCount,
+    0,
+    `daftar aktivitas memakai ${primaryCount} btn-primary — DESIGN.md: button-primary = satu-satunya aksi high-emphasis per layar (satu per baris = puluhan saat Phase 13)`,
+  );
+  assert.ok(
+    /class="btn-secondary"[\s\S]{0,120}\/learn\/aktivitas\//.test(src),
+    "aksi baris \"Mulai\" harus btn-secondary (pola kartu profil)",
+  );
+  const style = src.slice(src.indexOf("<style>"));
+  assert.ok(style.includes("background: var(--c-warm-yellow)"), "sekunder = warm yellow (token)");
+  assert.ok(style.includes("color: var(--c-ink)"), "teks sekunder = ink (token, 10,52:1)");
+  assert.ok(style.includes("min-height: var(--touch-min)"), "target sentuh ≥44px");
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(style), "warna hardcoded di blok style");
+  assert.ok(!/[0-9]ms\b/.test(style), "durasi ms hardcoded di blok style");
+});
+
+test("17.x child home: ikon kembali mencapai target sentuh minimum", async () => {
+  const src = await read("../src/pages/learn.astro");
+  const block = src.slice(src.indexOf(".btn-home {"), src.indexOf(".btn-home:hover"));
+  assert.ok(
+    block.includes("width: var(--touch-min)") && block.includes("height: var(--touch-min)"),
+    ".btn-home harus setinggi/ selebar --touch-min (44px) — terukur 40×40 di 390px & 768px",
+  );
+  assert.ok(!/width: 40px/.test(block), "ukuran tetap 40px di bawah ambang DESIGN.md");
+  // Child home tetap satu primary per layar (tombol "Mulai" rekomendasi,
+  // kelasnya "btn-primary btn-large").
+  const primaryCount = (src.match(/class="btn-primary["\s]/g) ?? []).length;
+  assert.equal(primaryCount, 1, `child home memakai ${primaryCount} btn-primary, harus tepat 1`);
+});

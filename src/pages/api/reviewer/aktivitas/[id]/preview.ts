@@ -32,6 +32,7 @@ import { reviewerIdOf } from "../../../../../lib/auth/reviewer-guard.ts";
 import { getReviewerActivityDetail } from "../../../../../lib/activity/reviewer.ts";
 import { buildActivityData } from "../../../../../lib/activity/content.ts";
 import { validateAnswer, type ActivityType } from "../../../../../lib/activity/domain.ts";
+import { feedbackExplanation } from "../../../../../lib/activity/feedback.ts";
 
 export const POST: APIRoute = async (context) => {
   const { request, params } = context;
@@ -78,8 +79,13 @@ export const POST: APIRoute = async (context) => {
   return jsonResponse({
     preview: true,
     correct: verdict.isCorrect,
-    explanation:
-      verdict.explanation ?? (verdict.isCorrect ? "Tepat sekali!" : "Belum tepat, coba lagi."),
+    // Pratinjau = umpan balik produksi (acceptance 11.12): penjelasan konten
+    // lebih dulu, lalu teks generik mesin penilaian.
+    explanation: feedbackExplanation(
+      detail.activity.explanation,
+      verdict.explanation,
+      verdict.isCorrect,
+    ),
     ...(verdict.hint ? { hint: verdict.hint } : {}),
   });
 };
