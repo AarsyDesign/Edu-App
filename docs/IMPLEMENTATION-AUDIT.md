@@ -74,7 +74,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
 | 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak" |
-| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px |
+| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px; **2026-10-09 (run ini, lanjutan)**: celah kepatuhan di child home + kartu profil ditutup — 27 hex di markup SVG → `currentColor`/`style="fill:var(--…)"`, 1 gradien latar bawaan dibuang, ikon yang ter-escape Astro diperbaiki lewat `set:html`, gerbang baru `test/visual-token-gate.test.ts` (3 test), lihat "Keputusan — child home & kartu profil: nilai visual + rendering ikon" |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
@@ -1769,9 +1769,95 @@ QA layar reviewer/orang tua (2026-10-08).
    UI baseline (OQ 16/17), ambang mastery (OQ 23), provider AI (OQ 26),
    guard perubahan belum disimpan (OQ 29) — tetap menunggu keputusan.
 
+## Keputusan — child home & kartu profil: nilai visual + rendering ikon (2026-10-09)
+
+Konteks: seluruh sisa fase VRD masih menunggu keputusan Arsyad (OQ 16/17,
+OQ 5/18/14, OQ 23, OQ 26, OQ 29, OQ 2), sehingga langkah aman berikutnya
+adalah **QA E2E eksploratif dua layar yang sudah ada** (VRD 17.1/17.13) —
+child home dan kartu profil orang tua. Peramban memunculkan tiga temuan
+visual; ketiganya perbaikan murni, tanpa perilaku atau keputusan produk baru.
+
+1. **F1 — ikon tampil sebagai teks literal (temuan terbesar)**:
+   `getAreaIcon()` (6 ikon area), `getActivityVisual()` (visual aktivitas) dan
+   `avatar` (4 motif kartu profil) mengembalikan string `<svg …>` yang disuntik
+   lewat `{expr}` — Astro meng-escape ekspresi, jadi peramban menampilkan teks
+   `<svg viewBox="0 0 24 24" …>` di dalam `.area-icon` / `.activity-visual` /
+   `.avatar-wrap`. Bukti sebelum perbaikan: `textContent` `.area-icon` = teks
+   SVG mentah dan hanya **3** elemen `svg` sungguhan di DOM child home
+   (avatar, tombol kembali, banner offline). Kini memakai **`set:html`**
+   (pola yang sudah dipakai `learn/aktivitas/[id].astro` untuk markup
+   aktivitas). Aman dari sisi keamanan: semua string berasal dari literal
+   hardcoded ber-kunci (`icons[code] || icons.numbers`,
+   `avatarSVGs[key] ?? star`) — tidak ada masukan pengguna yang mengalir ke
+   HTML. Bukti sesudah: **10** elemen `svg` di child home (6 area + 1 visual +
+   avatar + tombol kembali + banner) dan `document.body.innerText` tidak lagi
+   memuat `<svg`.
+2. **F2 — hex hardcoded di markup SVG** (melanggar aturan keras "nilai visual
+   hanya lewat `tokens.css`/DESIGN.md"): 23 literal di `src/pages/learn.astro`
+   + 4 di `src/components/ChildProfileCard.astro`, semuanya `stroke="#174A3A"`
+   plus `fill` pada ilustrasi. Kini seluruh garis memakai
+   **`stroke="currentColor"`** dengan container menyetel
+   `color: var(--c-deep-green)` (`.area-icon`, `.activity-visual`,
+   `.btn-home`, `.child-info .avatar-wrap`, `.empty-state .mark`,
+   `.avatar-wrap` kartu) — konsisten dengan `ChildProfileForm` yang sudah
+   memakai `currentColor`. Isian memakai `style="fill:var(--…)"`. **Satu warna
+   di luar palet dibuang: `#E85D4D`** pada empat titik ilustrasi
+   IDENTIFY_COLOR → tint palet (soft-peach, warm-yellow, sage, soft-blue);
+   mengikuti DESIGN.md *Support tints — surfaces and decorative geometry only*,
+   sengaja **bukan** warna semantik status (success/error) karena titik itu
+   dekoratif (`aria-hidden`).
+3. **F3 — gradien sebagai latar bawaan**: `.activity-visual` memakai
+   `linear-gradient(135deg, soft-green, soft-blue)` — satu-satunya `gradient(`
+   di seluruh `src/`, bertentangan DESIGN-SYSTEM §3.8 dan DESIGN.md *Don't:
+   gradient-by-default backgrounds*. Gerbang gradien lama (Phase 7) hanya
+   mencakup `learn/area`, `learn/aktivitas` dan `activity.css`, sehingga child
+   home lolos. Kini permukaan solid `var(--c-soft-green)`.
+4. **Gerbang baru `test/visual-token-gate.test.ts` (3 test)** menutup celah
+   cakupan gerbang lama (yang hanya memeriksa blok `<style>` per komponen):
+   - seluruh `src/**/*.astro` + `src/styles/*.css` (tanpa `tokens.css`)
+     **bebas literal heksa**; pengecualian tunggal = benih `colorValue`
+     `#174a3a` huruf kecil (isi konten editor, bukan gaya) sehingga stroke
+     besar `#174A3A` tetap tertangkap;
+   - **tanpa `gradient(`** di markup/gaya mana pun;
+   - child home + kartu profil wajib `currentColor` berpasangan
+     `color: var(--c-deep-green)` di container, ilustrasi IDENTIFY_COLOR bebas
+     hex, latar hero = token solid, dan helper SVG wajib lewat `set:html`
+     (menolak kembali ke ekspresi telanjang yang di-escape).
+5. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — dua layar tersentuh
+   (child home, kartu profil di dashboard): hierarki tidak berubah (child
+   home tetap **tepat 1** `btn-primary`, dashboard tetap 1 — diuji di
+   peramban); dekorasi **berkurang** (gradien dibuang, ilustrasi kembali ke
+   palet — lolos butir *"uses excessive gradients"* & *"uses color without
+   semantic reason"*); elemen/animasi baru **0** (`@keyframes` & durasi tidak
+   bertambah); target sentuh tidak berubah; status tetap teks; ilustrasi tetap
+   geometris non-hidup. `npm run design:lint` → **0 error, 0 warning**
+   (1 info ringkasan token).
+6. **Verifikasi**: `npm test` **285 pass / 0 fail** (3 baru), `npx tsc
+   --noEmit` bersih, `npm run build` hijau, `node scripts/smoke-loop.mjs` →
+   **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
+   `npm run perf` → **PERF_OK**. Bukti peramban (`scripts/qa-server.mjs`,
+   sesi via CDP cookie): garis ikon/avatar/kembali terukur
+   `rgb(23, 74, 58)` = `--c-deep-green`; latar `.activity-visual`
+   `rgb(221, 237, 226)` + `background-image: none`; rect empty state
+   `rgb(221, 234, 245)` = `--c-soft-blue` lewat `style` + `var()` (dibuktikan
+   dengan menarik aktivitas terbit ke UNPUBLISHED lewat endpoint reviewer di
+   server QA); `scrollWidth` = viewport di **390px** untuk `/parent` dan
+   `/learn`; kartu profil: 2 kartu → 2 SVG avatar ter-render.
+   **Catatan jujur**: ilustrasi IDENTIFY_COLOR diverifikasi di tingkat sumber
+   oleh gerbang (tanpa hex + hanya token), tidak tampil di peramban run ini
+   karena aktivitas rekomendasi berseed bertipe TRUE_FALSE.
+7. **Sengaja tidak dikerjakan**: preferensi audio/durasi/retensi (OQ 5/18/14),
+   UI baseline (OQ 16/17), ambang mastery (OQ 23), provider AI (OQ 26), guard
+   perubahan belum disimpan (OQ 29), deployment (OQ 2) — tetap menunggu
+   keputusan Arsyad.
+
 ## Untuk run berikutnya
 
-- **Status 2026-10-09 (run ini)**: QA E2E eksploratif **layar anak** selesai
+- **Status 2026-10-09 (run ini, lanjutan)**: QA E2E eksploratif child home +
+  kartu profil menemukan 3 temuan visual (ikon ter-escape, hex hardcoded,
+  gradien latar) — ketiganya diperbaiki + digerbangkan, lihat "Keputusan —
+  child home & kartu profil: nilai visual + rendering ikon". Sebelumnya QA E2E
+  eksploratif **layar anak** selesai
   (4 temuan diperbaiki, lihat keputusan di atas) — loop belajar kini teruji di
   peramban seperti layar reviewer/orang tua. Sisanya tetap menunggu
   keputusan/review Arsyad:

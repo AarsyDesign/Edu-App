@@ -23,10 +23,10 @@ interface Props {
 const { child, isActive, onSelect, onEdit, onArchive } = Astro.props;
 
 const avatarSVGs: Record<string, string> = {
-  star: `<svg viewBox="0 0 24 24" fill="none" stroke="#174A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`,
-  moon: `<svg viewBox="0 0 24 24" fill="none" stroke="#174A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`,
-  book: `<svg viewBox="0 0 24 24" fill="none" stroke="#174A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
-  lantern: `<svg viewBox="0 0 24 24" fill="none" stroke="#174A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M4 22h16M6 8h12M6 14h12"></path></svg>`,
+  star: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`,
+  moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`,
+  book: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
+  lantern: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M4 22h16M6 8h12M6 14h12"></path></svg>`,
 };
 
 const avatar = child.avatarKey && avatarSVGs[child.avatarKey] ? avatarSVGs[child.avatarKey] : avatarSVGs.star;
@@ -39,9 +39,7 @@ const goalsPreview = child.learningGoals.length > 0
 
 <article class={`profile-card ${isActive ? "active" : ""} ${child.archivedAt ? "archived" : ""}`} data-child-id={child.childId}>
   <div class="card-header">
-    <div class="avatar-wrap" aria-hidden="true">
-      {avatar}
-    </div>
+    <div class="avatar-wrap" aria-hidden="true" set:html={avatar} />
     <div class="info">
       <h2>{child.nickname}</h2>
       <p class="meta">{ageLabel} · {child.language.toUpperCase()}</p>
@@ -174,6 +172,8 @@ const goalsPreview = child.learningGoals.length > 0
     height: 56px;
     border-radius: var(--r-card);
     background: var(--c-soft-green);
+    /* Garis SVG avatar ikut token primer (kunci svg memakai currentColor). */
+    color: var(--c-deep-green);
     display: flex;
     align-items: center;
     justify-content: center;
