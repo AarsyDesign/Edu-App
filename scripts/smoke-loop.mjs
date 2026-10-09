@@ -148,6 +148,23 @@ try {
   });
   check("endpoint percobaan tanpa sesi → 401", anonAttempt.status === 401, String(anonAttempt.status));
 
+  // --- rute tak dikenal → halaman 404 aplikasi (PRD §23 no. 4) ---
+  const unknownRoute = await getRaw(`/halaman-tidak-ada-${randomUUID()}`);
+  check(
+    "rute tak dikenal → 404 dengan halaman aplikasi (bukan beranda bawaan Astro)",
+    unknownRoute.status === 404 &&
+      unknownRoute.body.includes("Halaman tidak ditemukan") &&
+      unknownRoute.body.includes('lang="id"') &&
+      !unknownRoute.body.includes("404: Not Found"),
+    `status=${unknownRoute.status}`,
+  );
+  const unknownApi = await getRaw(`/api/tidak-ada-${randomUUID()}`);
+  check(
+    "endpoint tak dikenal → 404",
+    unknownApi.status === 404,
+    `status=${unknownApi.status}`,
+  );
+
   // --- akun + profil anak ---
   const reg = await request("POST", "/api/auth/register", {
     email: "loop@contoh.id",

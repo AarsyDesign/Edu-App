@@ -43,3 +43,20 @@ test("500.astro ada (error boundary)", () => {
   // tanpa pesan error mentah
   assert.ok(!page.includes("digest"));
 });
+
+test("404.astro ada — halaman tak dikenal memakai shell & bahasa aplikasi", () => {
+  const page = readFileSync(root + "src/pages/404.astro", "utf8");
+  // Beranda bawaan Astro berbahasa Inggris + tema gelap di luar token;
+  // halaman ini menggantinya (PRD §23 no. 4: state error wajib ada).
+  assert.ok(page.includes("BaseLayout"));
+  assert.ok(page.includes("Halaman tidak ditemukan"));
+  assert.ok(page.includes('href="/"'));
+  assert.ok(page.includes('href="/parent"'));
+  // salinan manusiawi, tanpa jargon internal & tanpa pesan teknis mentah
+  assert.ok(!/VRD|OQ|PRD|Phase/.test(page));
+  assert.ok(!page.includes("digest"));
+  assert.ok(!page.includes("Astro"));
+  // satu aksi high-emphasis (DESIGN.md button-primary) + satu pendukung
+  assert.equal((page.match(/class="btn-primary"/g) ?? []).length, 1);
+  assert.equal((page.match(/class="btn-ghost"/g) ?? []).length, 1);
+});

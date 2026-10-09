@@ -58,7 +58,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | Phase | Judul | Status | Terakhir |
 |-------|-------|--------|----------|
 | 0 | Repository and Environment Audit | ✅ DONE | 2026-10-04 (commit `cbe7564`) |
-| 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b` |
+| 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b`; **2026-10-09 (run ini)** state error 404 melengkapi 500 — lihat "Keputusan — halaman 404 tersendiri" |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
 | 3 | Authentication and Parent Ownership | ✅ DONE | 2026-10-05 (commit `4617165`) — 3.1–3.11 lengkap: endpoint + UI login/daftar + middleware rute + gerbang kepemilikan + **3.9 rate limiting** |
 || 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, settings grid); **2026-10-06 UI buat/ubah/arsip profil** (`/parent/profil/baru`, `/parent/profil/:id/edit`) menutup tautan mati di dashboard |
@@ -1851,16 +1851,77 @@ visual; ketiganya perbaikan murni, tanpa perilaku atau keputusan produk baru.
    perubahan belum disimpan (OQ 29), deployment (OQ 2) — tetap menunggu
    keputusan Arsyad.
 
+## Keputusan — halaman 404 tersendiri (2026-10-09, run ini)
+
+Konteks: sisa fase VRD masih menunggu keputusan Arsyad (OQ 16/17, OQ 5/18/14,
+OQ 23, OQ 26, OQ 29, OQ 2, OQ 27), jadi langkah aman run ini = meninjau bagian
+aplikasi yang belum tersentuh QA peramban. Satu temuan nyata muncul: **rute
+yang tidak dikenal** (mis. `/halaman-tidak-ada`) dilayani beranda bawaan
+Astro — `404: Not Found`, `lang="en"`, tema gelap + aksen ungu di luar token —
+padahal PRD §23 no. 4 mewajibkan state error, dan DESIGN.md mewajibkan seluruh
+nilai visual lewat token (Phase 1 hanya membuat halaman 500).
+
+1. **Perbaikan**: `src/pages/404.astro` baru mengikuti pola `500.astro` —
+   `BaseLayout` (`lang="id"`, skip-link) + satu ikon geometris (lingkaran +
+   panah kembali, `currentColor` + `var(--c-*)`) + `h1` "Halaman tidak
+   ditemukan" + sub penjelas + tepat satu `btn-primary` "Kembali ke Beranda"
+   dan satu pendukung `btn-ghost` "Area Orang Tua". Status respons tetap
+   **404** (dibuktikan `curl`): `<title>Halaman tidak ditemukan</title>`,
+   `lang="id"`, beranda bawaan tidak lagi muncul.
+2. **Tanpa perilaku produk baru**: halaman statis tanpa sesi, tanpa data anak,
+   tanpa endpoint/rute tulis. Rute terlindungi tetap melewati gerbang lebih
+   dulu — di peramban, `/parent/halaman-tidak-ada` **bersesi** → 404 halaman
+   ini (bukan 404 bawaan), sedangkan tanpa sesi → 303 `/login` tetap dijaga
+   test gerbang yang sudah ada.
+3. **Catatan jujur (bukan OQ)**: `/api/*` yang tak dikenal kini menerima HTML
+   404 halaman ini; sebelumnya pun HTML (beranda bawaan Astro), jadi jenis
+   respons tidak berubah. PRD/VRD tidak mensyaratkan JSON 404 untuk endpoint
+   tak dikenal → tidak dikarang, hanya dicatat. Kedua: `document.title` di
+   peramban QA tampil ber-prefix emoji (`🐴 Halaman tidak ditemukan`) pada
+   **semua** halaman termasuk `/login`; `curl` membuktikan judul dari server
+   bersih → artefak lingkungan peramban, bukan kode aplikasi.
+4. **Gerbang regresi**: `test/foundation.test.ts` +1 test (wajib `BaseLayout`,
+   salinan Indonesia, `href="/"` + `/parent`, tanpa jargon internal/`digest`,
+   tepat 1 `btn-primary` + 1 `btn-ghost`); `scripts/smoke-loop.mjs` +2 cek
+   (rute tak dikenal → 404 + badan halaman aplikasi + `lang="id"` + bukan
+   `404: Not Found`; endpoint tak dikenal → 404). Gerbang heksa/gradien
+   `test/visual-token-gate.test.ts` dan gerbang jargon
+   `test/copy-no-internal-jargon.test.ts` memindai berkas baru otomatis.
+5. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — 8 butir untuk
+   layar baru, semua diperiksa di peramban (`scripts/qa-server.mjs`, 390px &
+   768px): hierarki `h1` → sub → **tepat 1 primary** + 1 pendukung (terukur);
+   dekorasi satu ikon geometris, tanpa gradien/blob/pill (lolos gerbang
+   `gradient(`/heksa); target sentuh skip-link 44px, kedua tombol 52px;
+   usia-appropriate (kalimat pendek, tanpa jargon); kepercayaan orang tua
+   (dua jalan pulang jelas, tanpa klaim/konten palsu); tanpa audio;
+   `prefers-reduced-motion` → transisi `1e-05s` (0,01ms); **390px**
+   `scrollWidth` = 390 dan **768px** `scrollWidth` = 768 (0 elemen melewati
+   viewport selain skip-link *by design*), 0 animasi terukur; kontras dari
+   computed style + rantai latar efektif — terendah **5,70:1** (sub
+   muted-ink di ivory), h1 9,65 · primary 9,88 · ghost 9,88; urutan Tab
+   skip-link → primary → ghost dengan outline solid 3px `--c-deep-green`.
+   `npm run design:lint` → **0 error, 0 warning** (1 info ringkasan token).
+6. **Verifikasi**: `npm test` **286 pass / 0 fail** (1 baru),
+   `./node_modules/.bin/tsc --noEmit` bersih, `npm run build` hijau,
+   `node scripts/smoke-loop.mjs` → **SMOKE_LOOP_OK** (2 cek baru),
+   `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
+   `node scripts/smoke-auth.mjs` → **SMOKE_OK**, `npm run perf` → **PERF_OK**.
+7. **Sengaja tidak dikerjakan**: preferensi audio/durasi/retensi
+   (OQ 5/18/14), UI baseline (OQ 16/17), ambang mastery (OQ 23), provider AI
+   (OQ 26), guard perubahan belum disimpan (OQ 29), header cache aset
+   `public/` (OQ 27), deployment (OQ 2), Phase 13 — tetap menunggu keputusan
+   Arsyad.
+
 ## Untuk run berikutnya
 
-- **Status 2026-10-09 (run ini, lanjutan)**: QA E2E eksploratif child home +
-  kartu profil menemukan 3 temuan visual (ikon ter-escape, hex hardcoded,
-  gradien latar) — ketiganya diperbaiki + digerbangkan, lihat "Keputusan —
-  child home & kartu profil: nilai visual + rendering ikon". Sebelumnya QA E2E
-  eksploratif **layar anak** selesai
-  (4 temuan diperbaiki, lihat keputusan di atas) — loop belajar kini teruji di
-  peramban seperti layar reviewer/orang tua. Sisanya tetap menunggu
-  keputusan/review Arsyad:
+- **Status 2026-10-09 (run ini, lanjutan)**: tinjauan bagian yang belum
+  tersentuh QA menemukan rute tak dikenal memakai beranda bawaan Astro —
+  kini punya `src/pages/404.astro` sendiri + gerbang test/smoke, lihat
+  "Keputusan — halaman 404 tersendiri". Sebelumnya pada hari yang sama:
+  QA E2E eksploratif child home + kartu profil (3 temuan visual diperbaiki)
+  dan QA E2E eksploratif layar anak (4 temuan diperbaiki) — loop belajar
+  kini teruji di peramban seperti layar reviewer/orang tua. Sisanya tetap
+  menunggu keputusan/review Arsyad:
   - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
     jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
   - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).
