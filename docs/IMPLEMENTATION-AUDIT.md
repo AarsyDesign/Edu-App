@@ -73,7 +73,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 13 | Seed 100 Activities | 🔒 gate review Arsyad | dilarang ditanam otomatis — impor batch lewat `/reviewer/aktivitas/impor` menunggu konten yang direview manusia (PRD §5/§7) |
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
-| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak" |
+| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak"; **2026-10-09 (lanjutan)** QA E2E eksploratif **6 tipe aktivitas** (COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE) 390/768px → 4 temuan perbaikan (titik COUNT_OBJECTS, pola `visualKey`, urutan tampil SEQUENCE, penanda teks MATCH) + 11 test regresi, lihat "Keputusan — QA E2E eksploratif 6 tipe aktivitas" |
 | 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px; **2026-10-09 (run ini, lanjutan)**: celah kepatuhan di child home + kartu profil ditutup — 27 hex di markup SVG → `currentColor`/`style="fill:var(--…)"`, 1 gradien latar bawaan dibuang, ikon yang ter-escape Astro diperbaiki lewat `set:html`, gerbang baru `test/visual-token-gate.test.ts` (3 test), lihat "Keputusan — child home & kartu profil: nilai visual + rendering ikon" |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
@@ -1768,6 +1768,60 @@ QA layar reviewer/orang tua (2026-10-08).
 7. **Sengaja tidak dikerjakan**: preferensi audio/durasi/retensi (OQ 5/18/14),
    UI baseline (OQ 16/17), ambang mastery (OQ 23), provider AI (OQ 26),
    guard perubahan belum disimpan (OQ 29) — tetap menunggu keputusan.
+
+## Keputusan — QA E2E eksploratif 6 tipe aktivitas + 4 perbaikan (2026-10-09, run ini lanjutan)
+
+Konteks: QA layar anak sebelumnya hanya memakai TAP_ANSWER dan TRUE_FALSE.
+Enam tipe lain (**COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR,
+IDENTIFY_SHAPE, MULTIPLE_CHOICE** — VRD 16.10–16.13, 17.1/17.13) belum pernah
+diuji di peramban.
+
+1. **Metode**: `scripts/qa-server.mjs` port 4411 (satu aktivitas diterbitkan
+   per tipe lewat matriks PRD §7), sesi anak via cookie dari output server,
+   tiap tipe diukur & dialiri salah → "Belum tepat" → coba lagi → benar pada
+   **390px & 768px**, plus cek `prefers-reduced-motion` dan target sentuh.
+2. **Empat temuan yang diperbaiki**:
+   - **F1 — COUNT_OBJECTS menggambar satu titik per kelompok**: anak diminta
+     menghitung lima bintang tetapi layar menampilkan dua. Perender kini
+     menggambar `count` titik per kelompok (kelompok 0 → nol titik) dan
+     `.count-object` membungkus (`flex-wrap`) agar kelompok besar tidak
+     meluber. Bukti peramban: 3 + 2 = **5 titik**, `scrollWidth` = 390.
+   - **F2 — `visualKey` konten menulis kelas CSS tanpa batas pola** (satu-satunya
+     elemen markup konten yang tidak di-escape). `VISUAL_KEY_RE`
+     (`^[a-z0-9_-]{1,40}$`, konsisten `avatarKey`) kini dipakai validator
+     **dan** perender (jatuh ke `visual` bila gagal), plus pagar
+     `COUNT_MAX_PER_GROUP` = 100 (count harus bilangan bulat 0–100).
+     Editor memberi pesan ramah ("Kunci visual hanya boleh huruf kecil…",
+     "Jumlah tiap kelompok maksimal 100.").
+   - **F3 — urutan tampil SEQUENCE selalu sama dengan urutan jawaban**:
+     editor menurunkan `correctPosition` dari urutan baris, jadi layar
+     menampilkan 1-2-3 dan anak cukup mengetuk atas ke bawah. Kini
+     `sequenceDisplayOrder()` (Fisher–Yates, mulberry32 diseed FNV-1a
+     `activityId`) — deterministik per aktivitas, tidak pernah sama dengan
+     urutan benar, penilaian tetap `correctPosition` di server. Bukti:
+     tampil [3,2,1]; ketuk atas-ke-bawah → "Belum tepat"; urutan benar → "Benar!".
+   - **F4 — status MATCH hanya lewat warna**: kini penanda teks `::after`
+     **"✓ dipilih"** / **"✓ terpasang"** (token-only, terukur via
+     `getComputedStyle`), konsisten prinsip (f).
+3. **Gerbang regresi**: `test/qa-activity-types.test.ts` (**11 test**) —
+   jumlah titik = `correctAnswer`, count 0, pola `visualKey` (4 kasus liar),
+   pagar count, sanitasi perender tanpa validator, dua pesan editor,
+   50 id aktivitas tidak pernah menampilkan urutan benar, determinisme,
+   markup ≠ jawaban sambil `validateAnswer` tetap menilai benar/salah,
+   penanda teks MATCH, dan `flex-wrap`.
+4. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)**: layar yang tersentuh
+   hanya internals layar aktivitas (tanpa layar baru) — hierarki aksi tidak
+   berubah; nilai visual hanya `var(--…)` (diff tanpa hex/rgb baru); status
+   teks, bukan warna saja; animasi tidak ditambah (0 `@keyframes` baru);
+   target sentuh semua ≥44px terukur di kedua viewport; `prefers-reduced-motion`
+   → transisi 1e-05s; `npx -y @google/design.md lint DESIGN.md` →
+   **0 error, 0 warning** (1 info ringkasan token).
+5. **Verifikasi**: `npx tsc --noEmit` bersih, `npm test` **297 pass / 0 fail**
+   (11 baru), `npm run build` hijau, sweep 768px ketiga layar (0 elemen
+   melewati viewport, 0 target <44px, 0 animasi terukur).
+6. **Dokumen**: CONTENT-SPEC §7.3 (hard rules `visualKey` + count + urutan
+   tampil SEQUENCE) dan AI-DRAFT-SCHEMA §5 (batas `visualKey`/`count` di
+   templat prompt) — draf AI tetap melewati `parseEditorPayload` yang sama.
 
 ## Keputusan — child home & kartu profil: nilai visual + rendering ikon (2026-10-09)
 

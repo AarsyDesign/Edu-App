@@ -18,7 +18,7 @@ import type {
   MultipleChoiceData,
   TrueFalseData,
 } from "./domain.ts";
-import { validateAnswer, type ValidationResult } from "./domain.ts";
+import { validateAnswer, COUNT_MAX_PER_GROUP, VISUAL_KEY_RE, type ValidationResult } from "./domain.ts";
 
 // ============================================================
 // Renderer Registry (maps type to render function)
@@ -155,7 +155,22 @@ renderers.TAP_ANSWER = renderTapAnswer;
 function renderCountObjects(input: ActivityRenderInput): string {
   const data = input.data as CountObjectsData;
   const objectsHtml = data.objects
-    .map((obj) => `<div class="count-object" data-count="${obj.count}"><span class="visual-${obj.visualKey}"></span></div>`)
+    .map((obj) => {
+      // Gambar `count` titik per kelompok — sebelumnya hanya satu titik
+      // per kelompok sehingga anak diminta menghitung lima bintang tetapi
+      // layar hanya menampilkan dua (temuan QA E2E tipe aktivitas).
+      const count =
+        Number.isInteger(obj.count) && obj.count > 0
+          ? Math.min(obj.count, COUNT_MAX_PER_GROUP)
+          : 0;
+      // Kunci visual divalidasi ulang di sini (bukan hanya di validator):
+      // string ini menjadi nama kelas di markup layar anak.
+      const visualClass = VISUAL_KEY_RE.test(obj.visualKey ?? "")
+        ? `visual-${obj.visualKey}`
+        : "visual";
+      const dots = Array.from({ length: count }, () => `<span class="${visualClass}"></span>`).join("");
+      return `<div class="count-object" data-count="${count}">${dots}</div>`;
+    })
     .join("");
 
   return `
@@ -204,10 +219,59 @@ renderers.MATCH = renderMatch;
 // Sequence Renderer (VRD 6.5) - stub
 // ============================================================
 
+/**
+ * Urutan tampil untuk SEQUENCE.
+ *
+ * Urutan tampil tidak boleh sama dengan urutan benar: perender menerima
+ * `items` yang sudah menurut `correctPosition` (dan editor menurunkan posisi
+ * dari urutan baris), sehingga tanpa pengacakan layar selalu menampilkan
+ * jawaban — anak cukup mengetuk dari atas ke bawah untuk "benar" (temuan
+ * QA E2E tipe aktivitas). Pengacakan memakai mulberry32 yang diseed
+ * FNV-1a(activityId) supaya hasilnya deterministik per aktivitas (muat ulang
+ * tidak mengubah tampilan); penilaian tetap sepenuhnya di server berbasis
+ * `correctPosition`.
+ */
+export function sequenceDisplayOrder<T extends { correctPosition: number }>(
+  items: readonly T[],
+  activityId: string,
+): T[] {
+  const display = [...items];
+  let state = fnv1a32(activityId);
+  const random = () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = display.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    const swap = display[i];
+    display[i] = display[j] as T;
+    display[j] = swap;
+  }
+  // Kalau hasil acak kebetulan sama dengan urutan benar (mungkin untuk
+  // panjang kecil), geser satu langkah — jawaban tidak pernah tampil lurus.
+  if (display.length > 1 && display.every((item, index) => item.correctPosition === index)) {
+    display.push(display.shift() as T);
+  }
+  return display;
+}
+
+function fnv1a32(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
 function renderSequence(input: ActivityRenderInput): string {
   const data = input.data as SequenceData;
-  const itemsHtml = data.items
-    .map((item, idx) => `<div class="sequence-item" data-id="${item.id}" draggable="true"><span class="seq-label">${escapeHtml(item.label)}</span></div>`)
+  const displayItems = sequenceDisplayOrder(data.items, input.activityId);
+  const itemsHtml = displayItems
+    .map((item) => `<div class="sequence-item" data-id="${item.id}" draggable="true"><span class="seq-label">${escapeHtml(item.label)}</span></div>`)
     .join("");
 
   return `
@@ -217,7 +281,7 @@ function renderSequence(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initSequence } from "/activity/sequence.js";
-initSequence("${input.activityId}", ${JSON.stringify(data.items.map(i => i.id))});
+initSequence("${input.activityId}", ${JSON.stringify(displayItems.map((i) => i.id))});
 </script>
 `;
 }

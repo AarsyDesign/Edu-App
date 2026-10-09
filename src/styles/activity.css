@@ -200,6 +200,7 @@
 }
 .count-object {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-1);
 }
 .number-input {
@@ -249,6 +250,22 @@
 .match-item[data-paired="true"] {
   background: var(--c-soft-green);
   border-color: var(--c-deep-green);
+}
+/* Status pemilihan/pasangan tetap terbaca tanpa warna (bukan hijau saja). */
+.match-item[data-selected="true"]::after,
+.match-item[data-paired="true"]::after {
+  margin-left: auto;
+  padding-left: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-deep-green);
+  white-space: nowrap;
+}
+.match-item[data-selected="true"]::after {
+  content: "✓ dipilih";
+}
+.match-item[data-paired="true"]::after {
+  content: "✓ terpasang";
 }
 
 /* --- Urutkan (sequence) --- */

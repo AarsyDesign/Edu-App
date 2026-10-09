@@ -91,6 +91,9 @@ Aturan keras:
 - Umur 3-7, difficulty 1-3, prompt maks 500 karakter, explanation maks 1000.
 - correct_answer harus valid untuk interaction_type yang dipilih
   (lihat kontrak di CONTENT-SPEC §7.2).
+- COUNT_OBJECTS: visualKey hanya huruf kecil/angka/tanda hubung/garis bawah
+  maks 40 karakter (contoh: apple, star), count bilangan bulat 0-100 tiap
+  kelompok, dan jumlah semua count = correct_answer.
 - area_code/skill_code hanya boleh dari daftar ini:
 {DAFTAR_SKILL}
 - Jangan isi field content_origin; sistem akan menandainya sendiri.

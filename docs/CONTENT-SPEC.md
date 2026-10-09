@@ -138,6 +138,15 @@ with no content leak and no 500. `activity.correct_answer` and
   renderer refuses anything else and shows an unstyled swatch instead.
 - `MULTIPLE_CHOICE` and `TRUE_FALSE` need a non-empty `prompt`; option-based
   types need at least 2 rows and the correct-count rules in §7.2.
+- `COUNT_OBJECTS.visualKey` must match `^[a-z0-9_-]{1,40}$` — it becomes a
+  CSS class on the child screen, so free text never reaches the markup — and
+  each group's `count` must be an integer `0..100`. The renderer draws
+  `count` items per group, so what the child can count always matches
+  `correctAnswer`.
+- `SEQUENCE` presentation order is shuffled by the renderer (deterministic
+  per activity) so the screen never shows items already in
+  `correctPosition` order; store items in correct order as usual — grading
+  still reads `correctPosition` on the server.
 - The payload `type` key is written lowercase; the validator also accepts the
   enum spelling, but lowercase is the convention here.
 - Content stays in DRAFT until a human review promotes it (PRD §7): these

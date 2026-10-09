@@ -231,6 +231,15 @@ export function isTrueFalseData(data: ActivityData): data is TrueFalseData {
 // Schema Validation (runtime, untuk server-side)
 // ============================================================
 
+/** Pola kunci visual konten — dipakai sebagai kelas CSS, jadi sama ketatnya
+ * dengan `avatarKey` profil anak (hanya [a-z0-9_-], maks 40). */
+export const VISUAL_KEY_RE = /^[a-z0-9_-]{1,40}$/;
+
+/** Pagar payload COUNT_OBJECTS per kelompok: perender menggambar `count`
+ * titik, jadi angka liar tidak boleh sampai ke layar anak. Bukan batas
+ * produk — hanya limit teknis render. */
+export const COUNT_MAX_PER_GROUP = 100;
+
 /** Validasi payload aktivitas sesuai tipe */
 export function validateActivityData(type: ActivityType, payload: unknown): ActivityData {
   if (!payload || typeof payload !== "object") {
@@ -276,8 +285,24 @@ export function validateActivityData(type: ActivityType, payload: unknown): Acti
         throw new Error("COUNT_OBJECTS: correctAnswer must be non-negative number");
       }
       for (const obj of d.objects) {
-        if (!obj.id || !obj.visualKey || typeof obj.count !== "number" || obj.count < 0) {
+        if (!obj.id || typeof obj.count !== "number" || obj.count < 0) {
           throw new Error("COUNT_OBJECTS: each object needs id, visualKey, count>=0");
+        }
+        // Kunci visual dipakai sebagai nama kelas CSS di perender — pola yang
+        // sama dengan kunci lain di aplikasi (avatarKey), supaya konten tidak
+        // pernah menuliskan markup bebas ke layar anak.
+        if (!VISUAL_KEY_RE.test(obj.visualKey ?? "")) {
+          throw new Error(
+            "COUNT_OBJECTS: visualKey must match ^[a-z0-9_-]{1,40}$",
+          );
+        }
+        // Batas payload: jumlah yang bisa dirender (perender menggambar
+        // `count` titik per kelompok). Bukan batas produk — hanya pagar
+        // supaya payload rusak tidak membuat layar anak macet.
+        if (!Number.isInteger(obj.count) || obj.count > COUNT_MAX_PER_GROUP) {
+          throw new Error(
+            `COUNT_OBJECTS: count must be an integer 0..${COUNT_MAX_PER_GROUP}`,
+          );
         }
       }
       return d;

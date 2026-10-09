@@ -167,13 +167,46 @@ if (publishedDraft.status !== 200) {
   throw new Error(`buat draf kedua gagal: ${JSON.stringify(publishedDraft.body)}`);
 }
 const publishedId = publishedDraft.body.activityId;
-for (const to of ["HUMAN_REVIEW", "QA_APPROVED", "PUBLISHED"]) {
-  const step = await call("POST", `/api/reviewer/aktivitas/${publishedId}/status`, {
-    to_status: to,
-  });
-  if (step.status !== 200) {
-    throw new Error(`transisi ${to} gagal: ${JSON.stringify(step.body)}`);
+async function publish(activityId) {
+  for (const to of ["HUMAN_REVIEW", "QA_APPROVED", "PUBLISHED"]) {
+    const step = await call("POST", `/api/reviewer/aktivitas/${activityId}/status`, {
+      to_status: to,
+    });
+    if (step.status !== 200) {
+      throw new Error(`transisi ${to} gagal: ${JSON.stringify(step.body)}`);
+    }
   }
+}
+await publish(publishedId);
+
+// --- satu aktivitas TERBIT per tipe yang belum tercakup QA peramban --------
+// QA E2E eksploratif layar anak sebelumnya hanya memakai TAP_ANSWER dan
+// TRUE_FALSE; enam tipe sisanya diuji pada run QA tipe aktivitas. Payload
+// diambil dari fixture resmi domain (validasi tipe yang sama dengan produksi).
+const { activityTestFixtures } = await import("../src/lib/activity/domain.ts");
+const extraSpecs = [
+  ["COUNT_OBJECTS", "Ada berapa bintang di layar?", "Jumlahnya 5 bintang."],
+  ["MATCH", "Pasangkan angka dengan jumlah buahnya.", "Setiap angka punya pasangan yang tepat."],
+  ["SEQUENCE", "Susun angka dari yang terkecil ke terbesar.", "Urutan yang benar adalah 1, 2, 3."],
+  ["IDENTIFY_COLOR", "Pilih warna merah.", "Merah adalah warna yang dimaksud."],
+  ["IDENTIFY_SHAPE", "Pilih bentuk lingkaran.", "Lingkaran tidak punya sudut."],
+  ["MULTIPLE_CHOICE", "Buah apa yang berwarna kuning?", "Pisang berwarna kuning."],
+];
+const typeActivityIds = {};
+for (const [type, prompt, explanation] of extraSpecs) {
+  const created = await call("POST", "/api/reviewer/aktivitas", {
+    ...basePayload,
+    prompt,
+    interaction_type: type,
+    correct_answer: activityTestFixtures[type],
+    explanation,
+  });
+  if (created.status !== 200) {
+    throw new Error(`buat draf ${type} gagal: ${JSON.stringify(created.body)}`);
+  }
+  const id = created.body.activityId;
+  await publish(id);
+  typeActivityIds[type] = id;
 }
 
 // --- akun orang tua + profil anak + riwayat jawaban (QA layar orang tua) ----
@@ -251,6 +284,7 @@ console.log(
     `emptyChildId=${emptyChildId}`,
     `draftId=${draft.body.activityId}`,
     `publishedId=${publishedId}`,
+    `typeIds=${Object.entries(typeActivityIds).map(([t, id]) => `${t}:${id}`).join(",")}`,
     `db=${DB_DIR}`,
   ].join(" "),
 );

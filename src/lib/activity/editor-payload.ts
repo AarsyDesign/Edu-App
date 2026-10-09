@@ -10,6 +10,7 @@
  * galat yang jelas sebelum permintaan dikirim.
  */
 import type { ActivityType } from "./domain.ts";
+import { COUNT_MAX_PER_GROUP, VISUAL_KEY_RE } from "./domain.ts";
 
 /** Satu baris opsi dari DOM, kunci = `data-f` pada input. */
 export interface EditorRowData {
@@ -233,6 +234,12 @@ export function validateActivityPayload(payload: Record<string, unknown>): strin
   if (type === "COUNT_OBJECTS") {
     if (list.some((item) => !Number.isFinite(Number(item.count)) || Number(item.count) <= 0)) {
       return "Jumlah tiap kelompok harus lebih dari nol.";
+    }
+    if (list.some((item) => Number(item.count) > COUNT_MAX_PER_GROUP)) {
+      return `Jumlah tiap kelompok maksimal ${COUNT_MAX_PER_GROUP}.`;
+    }
+    if (list.some((item) => !VISUAL_KEY_RE.test(String(item.visualKey ?? "")))) {
+      return "Kunci visual hanya boleh huruf kecil, angka, tanda hubung, dan garis bawah (maks 40 karakter).";
     }
     return null;
   }
