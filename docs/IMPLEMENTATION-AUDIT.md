@@ -67,7 +67,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; **2026-10-06 (run ini)**: 7.5 halaman detail area (menutup OQ 19) + 7.6/7.7 layar aktivitas interaktif, endpoint `/api/activity/attempt` & `/api/session/complete`, sesi per-tampilan, smoke E2E `SMOKE_LOOP_OK` (23 cek) |
 | 8 | Baseline Assessment | 🟡 PARTIAL | 2026-10-05 (commit fitur baseline) — 8.1–8.8 **mesin + endpoint** lengkap (pemilihan kolam usia, pengacakan terkendali, penyimpanan, estimasi, rekomendasi, reset 8.7) + 12 test; **UI onboarding belum ada** — terblokir OQ 16 (titik masuk, butuh konfirmasi) + OQ 17 (kolam <5 sampai Phase 13 menanam konten) |
 || 9 | Progress Engine | 🟡 PARTIAL | 2026-10-06 — **9.1–9.5 mesin + test** (`src/lib/progress/engine.ts`), **9.8 ringkasan orang tua** `src/lib/progress/summary.ts` + `GET /api/parent/progress` (run ini); 9.7 tanpa label; **9.6 ditahan** (tanpa bukti → OQ 23) |
-|| 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.9 kepadatan dashboard ✅ DONE 2026-10-08** (inventaris bagian dikunci gerbang + bukti peramban 390/768px, lihat "Keputusan — VRD 10.9"); **10.7/10.8/10.10 tertahan OQ 18 + OQ 14** (halaman audio & privasi belum ada, keputusan produk belum ada) |
+|| 10 | Parent Dashboard | 🟡 PARTIAL | 2026-10-07 — **10.1 child overview**: `/parent/anak/:id` merender `getParentProgressSummary` (3 fakta + empty state) + tautan "Ringkasan" di kartu profil; **10.2 sessions**: daftar sesi belajar (badge Asesmen/Terbuka, jumlah jawaban, durasi, selesai) — **DONE** (commit `f7f2427`); **10.3 learning areas**: baris per area + progressbar (attempted/total skill) + teks "n selesai" + aria-label — **DONE** (commit `a1708cd`); **10.4 kekuatan** + **10.5 saran latihan** — **DONE** (komit `130506b`/`d31c1ff`, dirapikan + diuji 2026-10-07: judul skill manusiawi, sampel `n jawaban`, label tipe/tingkat, empty state saran); 10.6 grid pengaturan sudah ada; **10.9 kepadatan dashboard ✅ DONE 2026-10-08** (inventaris bagian dikunci gerbang + bukti peramban 390/768px, lihat "Keputusan — VRD 10.9"); **10.7/10.8/10.10: halaman placeholder sudah ada** (commit `b6443ba` audio+privasi, `690a353` durasi sesi, 2026-10-08) — tautan di dashboard tidak lagi 404, tetapi **perilaku fiturnya tetap menunggu keputusan produk (OQ 5, OQ 14, OQ 18)**; salinan layar dibersihkan dari jargon internal + checklist anti-slop diverifikasi di peramban **2026-10-09 (run ini)**, lihat "Keputusan — copy tanpa jargon internal (2026-10-09)" |
 || 11 | Content Management | ✅ DONE | 2026-10-07 — **11.1** autentikasi reviewer (commit `94c890c`) + **11.2 editor aktivitas**: daftar `/reviewer/aktivitas` (saringan area/status, paginasi), buat `/reviewer/aktivitas/baru`, edit `/reviewer/aktivitas/:id` (8 panel tipe sesuai CONTENT-SPEC), API buka/ubah/hapus + gerbang status; **11.3 learning area selector** ikut beres (dropdown area+skill terfilter); 11.4–11.10 server validation ikut tercakup `parseEditorPayload`; **11.11 transisi status** (matriks PRD §7 di aplikasi + trigger DB, endpoint `/status`, jejak `content_review` + riwayat di layar detail); **11.12 pratinjau sebagai anak** (halaman `/reviewer/aktivitas/:id/pratinjau` + endpoint `/preview`, menilai tanpa tulis data); **11.13** dijaga matriks + trigger; **11.14 feed anak tertutup untuk konten non-published** (`test/phase11-14-draft-feed.test.ts`: 5 status disembunyikan dari semua jalur baca anak, endpoint sesi/jawaban 404 tanpa tulis, guard sumber `FROM activity` wajib saring `PUBLISHED`; baseline GET re-select ikut disaring) — **2026-10-07 run ini** |
 || 12 | AI-Assisted Draft Pipeline | ✅ DONE | 2026-10-07 (run ini) — **12.1** skema batch draf + templat prompt (`docs/AI-DRAFT-SCHEMA.md`, konstanta `AI_DRAFT_SCHEMA_VERSION`/`DRAFT_BATCH_MAX` di `src/lib/activity/ai-draft.ts`); **12.3/12.4** `parseDraftBatch` memvalidasi amplop + tiap draf (divalidasi ulang `parseEditorPayload`), satu draf gagal → batch utuh `400 DRAFT_BATCH_INVALID` "Draf ke-N: …" tanpa tulis apa pun; **12.5** `content_origin` DIPAKSA `AI_DRAFT` (klaim draf tak pernah dibaca); **12.6** `POST /api/reviewer/aktivitas/import` menyimpan batch sebagai `DRAFT` di antrean reviewer + **UI impor** `/reviewer/aktivitas/impor` (tempel JSON/unggah file, validasi client-side, status live region, redirect ke daftar); **12.15** kolom `version` sudah ada & +1 saat edit (Phase 11). **12.2 menunggu OQ 26** (provider/model); 12.7–12.13 = proses review manual memakai checklist CONTENT-SPEC di antrean yang sudah ada |
 | 13 | Seed 100 Activities | 🔒 gate review Arsyad | dilarang ditanam otomatis — impor batch lewat `/reviewer/aktivitas/impor` menunggu konten yang direview manusia (PRD §5/§7) |
@@ -429,12 +429,14 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     (VRD 8.8). Konsekuensinya asesmen belum bisa diselesaikan sampai Phase 13
     menanam konten — **bukan bug**, sengaja tidak ditambal dengan konten uji
     yang dipublikasikan. Setelah Phase 13 kolam tiap usia melebihi 5.
-18. **Tautan pengaturan di dashboard masih 404**: `/parent/pengaturan/audio`
-    dan `/parent/pengaturan/privasi` ditautkan dari `parent.astro` tetapi
-    halamannya belum ada (Phase 10/14). Sengaja tidak dibuat di run ini
-    karena preferensi audio & retensi/hapus akun belum ada keputusan
-    produknya (lihat OQ 5, OQ 14). Sama untuk "Durasi Sesi" yang sudah
-    diberi label "Segera hadir".
+18. **Tautan pengaturan di dashboard dulu 404** — ~~selesai 2026-10-08~~:
+    `/parent/pengaturan/audio`, `/parent/pengaturan/privasi` (commit `b6443ba`)
+    dan `/parent/pengaturan/sesi` (commit `690a353`) kini ada sebagai
+    **halaman placeholder** yang menyatakan ketersediaan lewat teks. Yang
+    **masih terbuka**: perilaku sebenarnya — preferensi audio (OQ 5 + OQ 18),
+    batas durasi sesi (OQ 5), retensi/hapus permanen/unduh data (OQ 14).
+    Placeholder sengaja tidak menyimpan preferensi apa pun supaya tidak
+    mengarang keputusan produk.
 19. **Tautan area di child home masih 404** — ~~selesai 2026-10-06~~:
     halaman `/learn/area/:code?child=` sudah ada (menyaring aktivitas PUBLISHED
     per area + usia anak, tautan kembali ke `/learn`, area tak dikenal diam-diam
@@ -1628,25 +1630,94 @@ sehingga aman dikerjakan otomatis tanpa mengarang keputusan produk.
    **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
    `npm run perf` → **PERF_OK**.
 
+## Keputusan — copy tanpa jargon internal di seluruh src (VRD 10.7/10.8/10.10, 2026-10-09)
+
+Konteks: dua run sebelumnya (2026-10-08, commit `b6443ba` dan `690a353`)
+menambahkan tiga halaman placeholder pengaturan **tanpa catatan di dokumen
+ini**; temuan gerbang VRD 10.9 ("jargon internal bocor ke copy") belum
+diperluas ke layar baru itu. Run ini memeriksa ulang seluruh `src/` dan
+menutup kelas cacat yang sama.
+
+1. **Enam titik jargon ditemukan & diperbaiki** (murni copy, tanpa
+   perubahan perilaku, tanpa nilai visual baru):
+   - `parent/pengaturan/audio.astro` — "(PRD §14, VRD 10.7) … (OQ 18)" →
+     "Fitur ini belum tersedia. Pilihan suaranya sedang disiapkan dan akan
+     muncul di halaman ini begitu siap."
+   - `parent/pengaturan/sesi.astro` — "(PRD §12, VRD 10.8) …" → bentuk sama.
+   - `parent/pengaturan/privasi.astro` — lima rujukan: "(PRD §8, §14)",
+     "(OQ 14)", "(OQ 5, OQ 14)", "(VRD 3.7)", dan nama berkas internal
+     `PRIVACY-AUDIT.md` → semua diganti kalimat manusiawi; blok CSS
+     `.policy-list code` ikut dibuang karena satu-satunya elemen `<code>`
+     sudah tidak ada.
+   - `reviewer/aktivitas/impor.astro` — "(PRD §5, VRD 12.5–12.6)" di
+     subtitle + "(VRD 12.2)" di daftar field wajib.
+   - `components/ActivityEditorForm.astro` — "(PRD §7)" di petunjuk
+     "Sumber rujukan".
+   - `pages/api/reviewer/aktivitas/import.ts` — pesan sukses impor
+     "(VRD 12.6)" (pesan itu tampil di live region UI impor).
+   Komentar dokumen di kepala berkas sengaja dibiarkan — itu untuk
+   pengembang, bukan untuk layar.
+2. **Gerbang regresi baru `test/copy-no-internal-jargon.test.ts` (3 test)**
+   memindai **seluruh `src/`** (76 berkas `.astro`/`.ts`/`.html`) setelah
+   membuang komentar, terhadap pola `Phase n | VRD n | OQ n | MVP | PRD §…`.
+   Anti-vacuous: ≥70 berkas wajib terpindai, lima contoh jargon wajib
+   terdeteksi, dan komentar dokumen wajib lolos. Tes ketiga: ketiga halaman
+   placeholder wajib menyatakan ketersediaan **lewat teks**, tanpa nama
+   berkas internal, tanpa dot status berwarna tanpa label.
+3. **Bukti QA E2E eksploratif di peramban** (server hasil build
+   `scripts/qa-server.mjs` :4407, sesi orang tua dipasang via CDP
+   `Network.setCookie` — tanpa mengetik kata sandi; tiga layar pengaturan
+   pada **390px & 768px**): `scrollWidth` = viewport (0 elemen melewati
+   viewport selain skip-link *by design*), **0 animasi terukur**, seluruh
+   target sentuh ≥44px (skip-link 44px, tautan kembali 44px), **0
+   `btn-primary`** (layar informatif — konsisten dengan layar reviewer
+   terkunci, tidak ada aksi high-emphasis yang bersaing), `innerText` tanpa
+   jargon dan tanpa nama berkas internal, status "belum tersedia" berupa
+   teks. Kontras dihitung dari computed style + rantai latar efektif —
+   terendah **5,70:1** (muted-ink 20px di ivory), semuanya ≥4,5:1:
+   muted-ink/warm-white 5,83 · ink/warm-white 12,87 · deep-green/soft-blue
+   8,26 · ink/soft-peach 10,07 · deep-green/ivory 9,65.
+   `prefers-reduced-motion` → transisi `1e-05s` (0,01ms). Tanpa sesi →
+   303 `/login` untuk ketiga halaman.
+4. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — checklist untuk
+   tiga layar placeholder: hierarki tanpa aksi high-emphasis (hanya tautan
+   kembali); dekorasi ~0 (0 `@keyframes` baru, 0 animasi terukur); target
+   sentuh ≥44px terukur; status disampaikan teks, bukan warna; nilai visual
+   hanya token (`--c-*`/`--sp-*`/`--fs-*`/`--dur-*`/`--touch-min`, tidak ada
+   hex baru); tidak ada audio di layar ini; reduced-motion 0,01ms; lolos
+   390px & 768px. `npm run design:lint` → **0 error, 0 warning** (1 info
+   ringkasan token).
+5. **Verifikasi**: `npm test` **277 pass / 0 fail** (3 baru), `npx tsc
+   --noEmit` bersih, `npm run build` hijau, `node scripts/smoke-loop.mjs` →
+   **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` →
+   **SMOKE_REVIEWER_OK**, `npm run perf` → **PERF_OK**.
+6. **Tidak dikerjakan (tetap menunggu keputusan)**: menyimpan preferensi
+   audio / durasi sesi ke `app_setting` (OQ 5 + OQ 18), ekspor data dan
+   hapus permanen (OQ 14). Placeholder sengaja tidak menulis apa pun —
+   mengisi preferensi sebelum keputusan produk = mengarang perilaku.
+
 ## Untuk run berikutnya
 
-- **VRD 10.9 selesai (run ini, 2026-10-08)** — item terakhir yang bisa
-  dikerjakan tanpa keputusan produk; setelah ini **tidak ada lagi langkah VRD
-  yang aman dikerjakan otomatis** — semua yang tersisa menunggu
-  keputusan/review Arsyad:
-  - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review
-    manusia; jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
+- **Status 2026-10-09**: tidak ada lagi langkah VRD yang aman dikerjakan
+  otomatis — semua sisa menunggu keputusan/review Arsyad:
+  - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
+    jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
   - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).
-  - **OQ 18/5/14** — halaman audio & privasi (10.7/10.8/10.10, 14.1–14.3).
+  - **OQ 5/18/14** — perilaku halaman pengaturan yang kini sudah ada
+    sebagai placeholder: preferensi audio, batas durasi sesi, ekspor/hapus
+    permanen (VRD 10.7/10.8/10.10 lanjutan + 14.1–14.3).
   - **OQ 23** — ambang mastery / dasar rekomendasi bergeser (9.6).
   - **OQ 26** — provider/model AI untuk generate batch draf (12.2).
   - **OQ 29** — guard "ada perubahan belum disimpan" sebelum transisi
     status reviewer (perilaku, bukan kosmetik).
   - **OQ 2** — deployment target (Phase 19). **OQ 27** — header cache
     aset `public/` (temuan 18.5, dampak kecil).
+- **Gerbang copy baru**: setiap layar/pesan baru wajib lolos
+  `test/copy-no-internal-jargon.test.ts` — jangan menulis "Phase/VRD/OQ/PRD"
+  di teks yang dibaca pengguna (komentar dokumen tetap boleh).
 - **Kalau Arsyad menjawab salah satu OQ di atas** → kerjakan item VRD yang
-  terbuka (mis. OQ 16/17 → 8.7 UI baseline; OQ 23 → 9.6; OQ 18/5 → 10.7
-  + 14.1–14.3).
+  terbuka (mis. OQ 16/17 → 8.7 UI baseline; OQ 23 → 9.6; OQ 5/18 → 10.7 +
+  14.1–14.3; OQ 14 → 10.10 ekspor/hapus).
 - **Verifikasi ulang tiap run**: `npm test && ./node_modules/.bin/tsc --noEmit && npm run build && node scripts/smoke-loop.mjs && node scripts/smoke-reviewer.mjs && npm run perf` (harus `SMOKE_LOOP_OK` + `SMOKE_REVIEWER_OK` + `PERF_OK`); lint `npm run design:lint` bila ada sentuhan UI.
 - Kalau tidak ada yang berubah sejak run terakhir → jawab `[SILENT]`.
 

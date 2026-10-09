@@ -14,7 +14,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     <p class="subtitle">
       Tempel atau unggah JSON batch draf (skema versi 1).
       Setiap draf disimpan sebagai <strong>DRAFT</strong> dan ditandai <strong>AI_DRAFT</strong>
-      — tidak pernah langsung terbit tanpa review manusia (PRD §5, VRD 12.5–12.6).
+      — tidak pernah langsung terbit tanpa review manusia.
     </p>
   </header>
 
@@ -86,7 +86,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       <summary>Lihat field wajib & aturan batch</summary>
       <ul>
         <li><strong>schema_version</strong>: wajib <code>1</code></li>
-        <li><strong>drafts</strong>: array 1–25 draf (VRD 12.2)</li>
+        <li><strong>drafts</strong>: array 1–25 draf</li>
         <li>Per draf wajib: <code>area_code</code>, <code>prompt</code>, <code>interaction_type</code>, <code>target_age_min</code>, <code>target_age_max</code>, <code>difficulty</code>, <code>correct_answer</code></li>
         <li><code>skill_code</code> opsional (kosong = skill pertama area)</li>
         <li><code>explanation</code> opsional, <code>sources</code> opsional (maks 5)</li>

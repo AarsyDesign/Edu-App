@@ -184,6 +184,6 @@ export const POST: APIRoute = async ({ request }) => {
     activityIds,
     contentOrigin: "AI_DRAFT",
     reviewStatus: "DRAFT",
-    message: `${activityIds.length} draf tersimpan sebagai AI_DRAFT berstatus DRAFT — menunggu review manusia (VRD 12.6).`,
+    message: `${activityIds.length} draf tersimpan sebagai AI_DRAFT berstatus DRAFT — menunggu review manusia.`,
   });
 };

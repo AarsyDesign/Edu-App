@@ -26,7 +26,7 @@ if (parentIdResult instanceof Response) {
   <section class="section" aria-label="Inventaris data anak">
     <h2>Data yang disimpan</h2>
     <p class="section-desc">
-      Aplikasi ini hanya menyimpan data minimal untuk kebutuhan belajar (PRD §8, §14):
+      Aplikasi ini hanya menyimpan data minimal untuk kebutuhan belajar:
     </p>
     <ul class="data-list">
       <li><strong>Akun orang tua:</strong> email (hash), kata sandi (hash), preferensi sesi.</li>
@@ -44,13 +44,13 @@ if (parentIdResult instanceof Response) {
         <h3>Unduh Data Saya</h3>
         <p class="action-desc">Ekspor seluruh data akun dan anak dalam format terstruktur.</p>
         <span class="coming-soon">Belum tersedia</span>
-        <p class="action-note">Menunggu keputusan format & cakupan ekspor (OQ 14).</p>
+        <p class="action-note">Format dan cakupan ekspornya sedang disiapkan.</p>
       </article>
       <article class="action-card danger">
         <h3>Hapus Akun Permanen</h3>
         <p class="action-desc">Hapus akun orang tua, seluruh profil anak, dan riwayat belajar.</p>
         <span class="error-note">Belum tersedia</span>
-        <p class="action-note">Butuh alur konfirmasi berlapis & kebijakan retensi (OQ 5, OQ 14).</p>
+        <p class="action-note">Alur konfirmasi dan kebijakan retensinya sedang disiapkan.</p>
       </article>
     </div>
   </section>
@@ -58,10 +58,10 @@ if (parentIdResult instanceof Response) {
   <section class="section" aria-label="Kebijakan privasi">
     <h2>Kebijakan & Retensi</h2>
     <ul class="policy-list">
-      <li>Data anak <strong>tidak pernah publik</strong> — setiap akses melewati kepemilikan orang tua (VRD 3.7).</li>
+      <li>Data anak <strong>tidak pernah publik</strong> — setiap akses melewati kepemilikan orang tua.</li>
       <li>Profil diarsipkan disembunyikan dari alur belajar, riwayat tetap tersimpan.</li>
       <li>Penghapusan permanen (saat tersedia) menghapus seluruh jejak — tanpa pemulihan.</li>
-      <li>Detail retensi & penghapusan terdokumentasi di <code>PRIVACY-AUDIT.md</code> (OQ 14 terbuka).</li>
+      <li>Kebijakan retensi dan penghapusan permanen sedang disiapkan dan akan diumumkan di halaman ini.</li>
     </ul>
   </section>
 </BaseLayout>
@@ -158,13 +158,6 @@ if (parentIdResult instanceof Response) {
     gap: var(--sp-3);
   }
   .policy-list li { color: var(--c-ink); line-height: 1.6; }
-  .policy-list code {
-    background: var(--c-soft-green);
-    color: var(--c-deep-green);
-    padding: 0.1em 0.4em;
-    border-radius: var(--r-control);
-    font-size: var(--fs-xs);
-  }
 
   /* error-note component (DESIGN.md) — sudah terpakai di form lain, pastikan tersedia di halaman ini */
   .error-note {
