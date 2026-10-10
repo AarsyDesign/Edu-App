@@ -26,6 +26,7 @@
  */
 import type { Result } from "../auth/accounts.ts";
 import { getChildForParent, type ChildRecord } from "../auth/guard.ts";
+import { isAvatarKey } from "./avatars.ts";
 import type { Db } from "../db/index.ts";
 
 export const CHILD_LIMITS = {
@@ -38,7 +39,11 @@ export const CHILD_LIMITS = {
   goalMax: 40,
 } as const;
 
-/** Motif avatar non-hidup: kunci teknis saja; katalognya dipilih di UI (DESIGN.md §Do's). */
+/**
+ * Motif avatar non-hidup: kunci teknis + keanggotaan katalog (OQ 15 ditutup
+ * 2026-10-10). Katalog `AVATAR_CATALOG` mengikuti daftar ilustrasi DESIGN.md
+ * dan dipakai bersama oleh form profil, kartu profil, dan validasi server ini.
+ */
 const AVATAR_KEY_RE = /^[a-z0-9_-]+$/;
 /** Mirip constraint kolom `language` di migrasi 0001. */
 const LANGUAGE_RE = /^[a-z]{2}(-[A-Za-z0-9]{2,8})?$/;
@@ -99,6 +104,9 @@ function parseAvatarKey(value: unknown): string | null | typeof BAD {
   if (typeof value !== "string") return BAD;
   if (value.length < 1 || value.length > CHILD_LIMITS.avatarKeyMax) return BAD;
   if (!AVATAR_KEY_RE.test(value)) return BAD;
+  // Kunci teknis yang valid pun harus ada di katalog — API tidak bisa dipakai
+  // menyimpan motif yang tidak pernah ditawarkan UI (mis. nama hewan/fiksi).
+  if (!isAvatarKey(value)) return BAD;
   return value;
 }
 

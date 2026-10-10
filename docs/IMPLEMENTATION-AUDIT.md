@@ -61,7 +61,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 1 | Product Foundation | ✅ DONE | 2026-10-04 (commit `eaff019`) — tokens, shell, error page, empty state, 4 test; spec token + gerbang lint anti-slop `c18723b`; **2026-10-09 (run ini)** state error 404 melengkapi 500 — lihat "Keputusan — halaman 404 tersendiri" |
 | 2 | Data Model | ✅ DONE | 2026-10-05 (commit `3e4a0e3`) — 12 tabel, migrasi + checksum, 20 test |
 | 3 | Authentication and Parent Ownership | ✅ DONE | 2026-10-05 (commit `4617165`) — 3.1–3.11 lengkap: endpoint + UI login/daftar + middleware rute + gerbang kepemilikan + **3.9 rate limiting** |
-|| 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, settings grid); **2026-10-06 UI buat/ubah/arsip profil** (`/parent/profil/baru`, `/parent/profil/:id/edit`) menutup tautan mati di dashboard |
+|| 4 | Child Profile | ✅ DONE | 2026-10-05 (commit `e2dc9a1`) — 4.1–4.11: endpoint server + 14 test + smoke E2E + UI dashboard (child switcher, profil aktif/diarsip, settings grid); **2026-10-06 UI buat/ubah/arsip profil** (`/parent/profil/baru`, `/parent/profil/:id/edit`) menutup tautan mati di dashboard; **2026-10-10 (run ini)** OQ 15 ditutup — validasi katalog avatar server + modul bersama, lihat "Keputusan — OQ 15" |
 || 5 | Learning Areas and Skills | ✅ DONE | 2026-10-05 (commit `...`) — 5.1–5.6 lengkap: 6 learning area + 53 skill (seed migrasi 0003), query API baca + filter usia, 10 test |
 || 6 | Activity Engine | ✅ DONE | 2026-10-05 (commit `...`) — 6.1 domain contract + 6.2–6.8 renderers + 6.13 type-driven renderer + 6.9 server validation + 6.15 test fixtures + **48 test baru** (type guards, fixtures, server validation, renderer, invalid payload safety, retry/completion/feedback hooks); semua 130 test hijau |
 || 7 | Child Home and Learning Journey | ✅ DONE | 2026-10-05 (commit `...`) — 7.1 child home, 7.2 learning journey, 7.3 next recommended activity, 7.4 progress non-kompetitif, 7.5 area selection, 7.6 session start API, 7.8 gentle progress animation, 7.9 empty state, 7.10 offline banner; **2026-10-06 (run ini)**: 7.5 halaman detail area (menutup OQ 19) + 7.6/7.7 layar aktivitas interaktif, endpoint `/api/activity/attempt` & `/api/session/complete`, sesi per-tampilan, smoke E2E `SMOKE_LOOP_OK` (23 cek) |
@@ -410,11 +410,14 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
     jalur restore** — PRD/VRD 4.10 tidak menyebut pemulihan. Bila Arsyad
     ingin "kembalikan profil terarsip" atau "hapus permanen + riwayat",
     tambahkan endpoint baru (jangan menambah perilaku diam-diam).
-15. **Katalog avatar non-hidup**: PRD §8 hanya menulis "optional non-living
+15. ~~**Katalog avatar non-hidup**: PRD §8 hanya menulis "optional non-living
    avatar". Endpoint menerima kunci `^[a-z0-9_-]{1,40}$` tanpa memvalidasi
    keanggotaan katalog; pilihan motif (bintang, buku, bulan, lentera —
    mengikuti daftar ilustrasi DESIGN.md) ditentukan saat UI profil anak,
-   dan validasi katalog menyusul bersamanya.
+   dan validasi katalog menyusul bersamanya.~~ → **SELESAI 2026-10-10**
+   (lihat "Keputusan — OQ 15: katalog avatar bersama" di bawah): katalog
+   kini modul bersama `src/lib/children/avatars.ts` yang dipakai validasi
+   server + form + kartu profil, dikunci test konsistensi tiga arah.
 16. **Titik masuk UI baseline (VRD 8.7 "skip")**: PRD §8 menaruh "mulai
     asesmen dasar" sebagai langkah 8 onboarding, tetapi tidak menyebut
     layarnya ada di mana. Endpoint sudah siap (GET/POST/DELETE); yang belum
@@ -2053,9 +2056,72 @@ diperbaiki pada run yang sama.
    perubahan belum disimpan (OQ 29), deployment (OQ 2/27), Phase 13 — tetap
    menunggu keputusan Arsyad.
 
+## Keputusan — OQ 15: katalog avatar bersama (2026-10-10)
+
+Konteks: tidak ada perubahan dari Arsyad (lokal = `origin/main`, working tree
+bersih); seluruh sisa fase tetap menunggu keputusan (OQ 2/5/14/16/17/18/23/
+26/29; Phase 13), jadi langkah aman run ini = **menutup OQ 15** (validasi
+katalog avatar, ditugaskan PRD §8 *select non-living avatar* + catatan fase
+4 "validasi katalog menyusul bersamanya" — UI profil anak sudah ada sejak
+2026-10-06, jadi syaratnya terpenuhi). Murni penguatan kontrak, tanpa
+keputusan produk baru: katalog (bintang, buku, bulan, lentera) sudah final
+di UI dan DESIGN.md.
+
+1. **Modul bersama `src/lib/children/avatars.ts`** — `AVATAR_CATALOG`
+   (key + label), `AvatarKey`, `AVATAR_KEYS`, `isAvatarKey()`. Tanpa
+   dependensi db/auth sehingga aman diimpor UI, endpoint, dan test.
+2. **Validasi server kini menolak kunci di luar katalog**:
+   `parseAvatarKey` (create & patch `/api/children`) setelah lolos pola
+   `^[a-z0-9_-]{1,40}$` wajib `isAvatarKey()` — API tidak bisa dipakai
+   menyimpan motif yang tidak pernah ditawarkan UI (mis. nama hewan/fiksi,
+   yang juga konsisten aturan keras "tanpa karakter manusia/hewan").
+   `null` tetap berarti "tanpa avatar".
+3. **UI memakai katalog yang sama, bukan salinan literal**: `ChildProfileForm`
+   memetakan `AVATAR_CATALOG` + `Record<AvatarKey, string>` untuk path SVG;
+   `ChildProfileCard` memakai `Record<AvatarKey, string>` + `isAvatarKey()`
+   untuk memilih gambar. Konsekuensi typecheck: menambah kunci katalog tanpa
+   gambar di form/kartu = **error `tsc`**, jadi ketiga berkas tidak bisa
+   menyimpang diam-diam. Kartu menjatuhkan kunci lama di luar katalog ke
+   motif bintang (baris lama aman, tanpa membiarkan kunci asing lolos).
+4. **Gerbang regresi** — `test/child-profile-ui.test.ts` katalog tiga arah
+   (modul = key form = key kartu, wajib import modul bersama, bukan daftar
+   literal); `test/child-profile.test.ts` +1 test OQ 15 (keempat kunci
+   katalog diterima & tersimpan lewat `createChildProfile`, kunci liar
+   `rocket`/`kucing`/`STAR`/`star2` ditolak `isAvatarKey`) + 2 baris pada
+   daftar isian ditolak ("avatar di luar katalog (kunci teknis sah)" dan
+   "(motif hewan)") — sebelumnya keduanya **lolos 201/200**.
+5. **Tanpa UI baru** — dua komponen berubah hanya di frontmatter (impor +
+   pemetaan), markup/gaya tidak tersentuh → checklist layar dilewati
+   (tanpa layar baru); gerbang anti-slop yang ada (token, jargon, hierarki
+   aksi, kontras) tetap hijau otomatis lewat `npm test`.
+   `node @google/design.md lint DESIGN.md` → **0 error, 0 warning** (1 info).
+6. **Verifikasi**: `npm test` **307 pass / 0 fail** (3 baru/diubah),
+   `tsc --noEmit` bersih, `npm run build` hijau, `smoke-loop` →
+   **SMOKE_LOOP_OK**, `smoke-reviewer` → **SMOKE_REVIEWER_OK**, `smoke-auth`
+   → **SMOKE_OK**, `npm run perf` → **PERF_OK**.
+
 ## Untuk run berikutnya
 
-- **Status 2026-10-10 (run ini)**: QA viewport **360px & 1280px** lolos di
+- **Status 2026-10-10 (run ini, lanjutan)**: **OQ 15 ditutup** — katalog
+  avatar kini modul bersama `src/lib/children/avatars.ts` yang dipakai
+  validasi server (kunci di luar katalog → 400), form, dan kartu profil;
+  dikunci test konsistensi tiga arah, lihat "Keputusan — OQ 15: katalog
+  avatar bersama". Sisanya tetap menunggu keputusan/review Arsyad:
+  - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
+    jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
+  - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).
+  - **OQ 5/18/14** — perilaku halaman pengaturan yang kini sudah ada
+    sebagai placeholder: preferensi audio, batas durasi sesi, ekspor/hapus
+    permanen (VRD 10.7/10.8/10.10 lanjutan + 14.1–14.3).
+  - **OQ 23** — ambang mastery / dasar rekomendasi bergeser (9.6).
+  - **OQ 26** — provider/model AI untuk generate batch draf (12.2).
+  - **OQ 29** — guard "ada perubahan belum disimpan" sebelum transisi
+    status reviewer (perilaku, bukan kosmetik).
+  - **OQ 2** — deployment target (Phase 19). **OQ 27** — header cache
+    aset `public/` (temuan 18.5, dampak kecil).
+  - **OQ 12/13** (kosakata learning goals + daftar bahasa) — keputusan
+    konten, belum tersentuh.
+- **Status 2026-10-10 (arsip, run sebelumnya)**: QA viewport **360px & 1280px** lolos di
   semua layar inti; dua cacat layar aktivitas anak diperbaiki — struktur
   heading (kini 1 `h1` = prompt) dan **`escapeHtml` no-op sejak awal** (lihat
   "Keputusan — QA desktop + struktur heading + escaping perender + 17.12");

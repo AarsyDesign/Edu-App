@@ -160,6 +160,8 @@ test("4.1–4.6 menolak isian di luar kontrak (usia, nickname, avatar, bahasa, g
     ["nickname kosong", { nickname: "   ", age: 5 }],
     ["nickname terlalu panjang", { nickname: "x".repeat(41), age: 5 }],
     ["avatar bukan kunci teknis", { nickname: "A", age: 5, avatarKey: "Moon Emoji" }],
+    ["avatar di luar katalog (kunci teknis sah)", { nickname: "A", age: 5, avatarKey: "rocket" }],
+    ["avatar di luar katalog (motif hewan)", { nickname: "A", age: 5, avatarKey: "kucing" }],
     ["avatar kosong", { nickname: "A", age: 5, avatarKey: "" }],
     ["bahasa salah bentuk", { nickname: "A", age: 5, language: "ID" }],
     ["goals bukan array", { nickname: "A", age: 5, learningGoals: "angka" }],
@@ -179,6 +181,28 @@ test("4.1–4.6 menolak isian di luar kontrak (usia, nickname, avatar, bahasa, g
   // Tidak ada satu pun profil tersimpan dari body yang ditolak.
   const list = await profiles.listChildrenForParent(db, parentId);
   assert.equal(list.length, 0);
+});
+
+test("OQ 15: seluruh kunci katalog avatar diterima; modul bersama = validasi server", async () => {
+  const { AVATAR_KEYS, isAvatarKey } = await import("../src/lib/children/avatars.ts");
+  assert.deepEqual([...AVATAR_KEYS].sort(), ["book", "lantern", "moon", "star"]);
+  for (const key of AVATAR_KEYS) assert.ok(isAvatarKey(key), `${key} harus di katalog`);
+  for (const key of ["rocket", "kucing", "STAR", "star2"]) {
+    assert.equal(isAvatarKey(key), false, `${key} bukan kunci katalog`);
+  }
+
+  // Keempat kunci katalog benar-benar tersimpan lewat jalur data yang sama
+  // yang dipakai endpoint (parseChildInput → createChildProfile).
+  const parentId = await makeParent();
+  for (const [i, key] of AVATAR_KEYS.entries()) {
+    const result = await profiles.createChildProfile(db, parentId, {
+      nickname: `Motif ${i}`,
+      age: 4,
+      avatarKey: key,
+    });
+    assert.ok(result.ok, `kunci katalog ${key} harus diterima`);
+    if (result.ok) assert.equal(result.value.avatarKey, key);
+  }
 });
 
 test("nickname aktif unik per akun — tabrakan beda kapital/spasi ditolak", async () => {

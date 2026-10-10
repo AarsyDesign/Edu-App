@@ -2,7 +2,11 @@
 /**
  * Kartu profil anak untuk area orang tua (VRD 4.8, 4.11).
  * Menampilkan ringkasan profil + aksi edit/arsip dengan gerbang orang tua.
+ * Kunci katalog avatar lewat modul bersama `AVATAR_CATALOG` (OQ 15) —
+ * `Record<AvatarKey, …>` membuat typecheck menolak kunci katalog tanpa gambar.
  */
+import { isAvatarKey, type AvatarKey } from "../lib/children/avatars.ts";
+
 interface Props {
   child: {
     childId: string;
@@ -22,14 +26,19 @@ interface Props {
 
 const { child, isActive, onSelect, onEdit, onArchive } = Astro.props;
 
-const avatarSVGs: Record<string, string> = {
+const avatarSVGs: Record<AvatarKey, string> = {
   star: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`,
   moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`,
   book: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
   lantern: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M4 22h16M6 8h12M6 14h12"></path></svg>`,
 };
 
-const avatar = child.avatarKey && avatarSVGs[child.avatarKey] ? avatarSVGs[child.avatarKey] : avatarSVGs.star;
+// Baris lama bisa saja menyimpan kunci di luar katalog (sebelum validasi OQ 15)
+// — jatuh dengan anggun ke motif bintang, tanpa membiarkan kunci asing lolos.
+const storedAvatar = child.avatarKey;
+const avatar = storedAvatar !== null && isAvatarKey(storedAvatar)
+  ? avatarSVGs[storedAvatar]
+  : avatarSVGs.star;
 const ageLabel = `Usia ${child.age} tahun`;
 const goalsPreview = child.learningGoals.length > 0
   ? child.learningGoals.slice(0, 2).join(", ") + (child.learningGoals.length > 2 ? " …" : "")

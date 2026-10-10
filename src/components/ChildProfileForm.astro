@@ -16,8 +16,11 @@
  * dilewati.
  *
  * Katalog avatar mengikuti daftar ilustrasi DESIGN.md (bintang, buku, bulan,
- * lentera) — lihat OPEN QUESTION 15; kunci yang sama dipakai ChildProfileCard.
+ * lentera) lewat modul bersama `AVATAR_CATALOG` — kunci yang sama dipakai
+ * ChildProfileCard dan validasi server (OQ 15), jadi ketiganya tidak bisa
+ * menyimpang: menambah kunci katalog tanpa gambar di sini = error typecheck.
  */
+import { AVATAR_CATALOG, type AvatarKey } from "../lib/children/avatars.ts";
 import { CHILD_LIMITS } from "../lib/children/profiles.ts";
 
 interface Props {
@@ -44,13 +47,19 @@ const selectedAvatar = current?.avatarKey ?? "";
 const goals = current?.learningGoals ?? [];
 const goalRows = goals.length > 0 ? goals : [""];
 
-/** Motif avatar non-hidup (DESIGN.md §Do's: bintang, buku, bulan, lentera). */
-const avatarOptions = [
-  { key: "star", label: "Bintang", path: "M12 2l2.9 6.26L21.6 9.27l-5 4.87 1.18 6.88L12 17.77 6.22 21.02 7.4 14.14l-5-4.87 6.7-1.01z" },
-  { key: "moon", label: "Bulan", path: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" },
-  { key: "book", label: "Buku", path: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" },
-  { key: "lantern", label: "Lentera", path: "M12 2v6M12 16v6M4 22h16M6 8h12M6 14h12" },
-];
+/** Gambar chip per kunci katalog — wajib lengkap (Record<AvatarKey, …>). */
+const avatarPaths: Record<AvatarKey, string> = {
+  star: "M12 2l2.9 6.26L21.6 9.27l-5 4.87 1.18 6.88L12 17.77 6.22 21.02 7.4 14.14l-5-4.87 6.7-1.01z",
+  moon: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z",
+  book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z",
+  lantern: "M12 2v6M12 16v6M4 22h16M6 8h12M6 14h12",
+};
+
+const avatarOptions = AVATAR_CATALOG.map((opt) => ({
+  key: opt.key,
+  label: opt.label,
+  path: avatarPaths[opt.key],
+}));
 ---
 
 <form

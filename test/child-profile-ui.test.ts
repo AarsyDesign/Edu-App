@@ -82,15 +82,25 @@ test("hanya isian PRD §8 yang diminta (tanpa PII berlebih)", () => {
   assert.match(form, /MAX_GOALS = 6/, "maksimal 6 tujuan belajar");
 });
 
-test("katalog avatar konsisten dengan kartu profil (bintang, bulan, buku, lentera)", () => {
-  const formKeys = [...form.matchAll(/key:\s*"([a-z]+)",\s*label:\s*"([^"]+)"/g)]
-    .map((m) => m[1])
-    .sort();
-  const cardBlock = /avatarSVGs: Record<string, string> = \{([\s\S]*?)\};/.exec(card);
+test("katalog avatar konsisten: modul bersama = kartu profil = gambar chip form (bintang, bulan, buku, lentera)", async () => {
+  // OQ 15: satu sumber kebenaran `AVATAR_CATALOG` — server, form, dan kartu
+  // memakai kunci yang sama; ketiganya dibandingkan eksplisit di sini.
+  const { AVATAR_KEYS } = await import("../src/lib/children/avatars.ts");
+  assert.deepEqual([...AVATAR_KEYS].sort(), ["book", "lantern", "moon", "star"]);
+
+  const formBlock = /avatarPaths: Record<AvatarKey, string> = \{([\s\S]*?)\};/.exec(form);
+  assert.ok(formBlock, "gambar chip avatar di ChildProfileForm tidak terbaca");
+  const formKeys = [...formBlock[1].matchAll(/^ {2}([a-z]+):\s*"/gm)].map((m) => m[1]).sort();
+
+  const cardBlock = /avatarSVGs: Record<AvatarKey, string> = \{([\s\S]*?)\};/.exec(card);
   assert.ok(cardBlock, "katalog avatar di ChildProfileCard tidak terbaca");
   const cardKeys = [...cardBlock[1].matchAll(/^\s*([a-z]+):\s*`/gm)].map((m) => m[1]).sort();
+
   assert.deepEqual(formKeys, cardKeys);
-  assert.deepEqual(formKeys, ["book", "lantern", "moon", "star"]);
+  assert.deepEqual(formKeys, [...AVATAR_KEYS].sort());
+  // Ketiga berkas benar-benar mengimpor modul bersama (bukan salinan daftar literal)
+  assert.ok(form.includes("AVATAR_CATALOG"), "form harus memakai katalog bersama");
+  assert.ok(card.includes("isAvatarKey"), "kartu harus memakai pemeriksa katalog bersama");
   // avatar bersifat opsional → ada pilihan "tanpa avatar"
   assert.ok(form.includes('value=""'));
 });
