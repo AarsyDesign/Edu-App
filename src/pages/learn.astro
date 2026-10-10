@@ -457,6 +457,14 @@ function getActivityVisual(type: string) {
     z-index: 100;
     animation: slideUp var(--dur-card) var(--ease-out);
   }
+  /* Atribut hidden diatur lewat JS (banner.hidden = navigator.onLine), tapi
+     gaya display:flex di kelas menimpa gaya bawaan [hidden]{display:none}
+     ( lembar gaya penulis selalu menang atas lembar gaya UA ) — tanpa blok
+     ini banner offline tampil terus-menerus walau sedang online. Pola sama
+     dipakai .archive-status / .type-panel / .btn-tertiary. */
+  .offline-banner[hidden] {
+    display: none;
+  }
   @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .reduce-motion .offline-banner { animation: none; }
 

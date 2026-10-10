@@ -496,6 +496,16 @@ const skillLabels: ReadonlyMap<string, SkillLabel> =
     font-size: var(--fs-sm);
     color: var(--c-muted-ink);
   }
+  /* Baris meta sesi selesai memuat tiga potong teks (jawaban · durasi ·
+     waktu selesai) di dalam satu span; tanpa flex+gap di sini ketiganya
+     menempel ("1 jawaban14 detikselesai…") — gap induk tidak mewarisi ke
+     anak inline. Temuan QA E2E 2026-10-10. */
+  .session-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
   @media (max-width: 480px) {
     .session-meta {
       justify-content: flex-start;

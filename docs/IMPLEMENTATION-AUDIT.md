@@ -73,8 +73,8 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 13 | Seed 100 Activities | 🔒 gate review Arsyad | dilarang ditanam otomatis — impor batch lewat `/reviewer/aktivitas/impor` menunggu konten yang direview manusia (PRD §5/§7) |
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
-| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak"; **2026-10-09 (lanjutan)** QA E2E eksploratif **6 tipe aktivitas** (COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE) 390/768px → 4 temuan perbaikan (titik COUNT_OBJECTS, pola `visualKey`, urutan tampil SEQUENCE, penanda teks MATCH) + 11 test regresi, lihat "Keputusan — QA E2E eksploratif 6 tipe aktivitas"; **2026-10-10 (run ini)** viewport **360px (Android kecil)** & **1280px (desktop responsive fallback — QA-ACCEPTANCE Visual Review)** terukur di semua layar inti → lolos tanpa temuan layout, lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12" |
-| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px; **2026-10-09 (run ini, lanjutan)**: celah kepatuhan di child home + kartu profil ditutup — 27 hex di markup SVG → `currentColor`/`style="fill:var(--…)"`, 1 gradien latar bawaan dibuang, ikon yang ter-escape Astro diperbaiki lewat `set:html`, gerbang baru `test/visual-token-gate.test.ts` (3 test), lihat "Keputusan — child home & kartu profil: nilai visual + rendering ikon"; **2026-10-10 (run ini)** **17.12 ditutup** — tangkapan layar representatif 13 berkas di `docs/qa-screenshots/` (9 desktop 1280px + 4 mobile 390px, fixture nama samaran) + perbaikan semantik/keamanan layar aktivitas (1 h1 = prompt; `escapeHtml` no-op sejak awal dibetulkan), lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12" |
+| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak"; **2026-10-09 (lanjutan)** QA E2E eksploratif **6 tipe aktivitas** (COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE) 390/768px → 4 temuan perbaikan (titik COUNT_OBJECTS, pola `visualKey`, urutan tampil SEQUENCE, penanda teks MATCH) + 11 test regresi, lihat "Keputusan — QA E2E eksploratif 6 tipe aktivitas"; **2026-10-10 (run ini)** viewport **360px (Android kecil)** & **1280px (desktop responsive fallback — QA-ACCEPTANCE Visual Review)** terukur di semua layar inti → lolos tanpa temuan layout, lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12"; **2026-10-10 (run ini, lanjutan)** QA E2E eksploratif **alur konten penuh** (impor batch UI → review → pratinjau → terbit → anak menjawab → progress orang tua) terbukti utuh + 2 temuan diperbaiki (banner offline selalu tampil, baris meta sesi menempel) + 4 test regresi baru, lihat "Keputusan — QA E2E eksploratif alur konten penuh + 2 perbaikan" |
+| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px; **2026-10-09 (run ini, lanjutan)**: celah kepatuhan di child home + kartu profil ditutup — 27 hex di markup SVG → `currentColor`/`style="fill:var(--…)"`, 1 gradien latar bawaan dibuang, ikon yang ter-escape Astro diperbaiki lewat `set:html`, gerbang baru `test/visual-token-gate.test.ts` (3 test), lihat "Keputusan — child home & kartu profil: nilai visual + rendering ikon"; **2026-10-10 (run ini)** **17.12 ditutup** — tangkapan layar representatif 13 berkas di `docs/qa-screenshots/` (9 desktop 1280px + 4 mobile 390px, fixture nama samaran) + perbaikan semantik/keamanan layar aktivitas (1 h1 = prompt; `escapeHtml` no-op sejak awal dibetulkan), lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12"; **2026-10-10 (run ini, lanjutan)** dua temuan anti-slop dari QA alur konten penuh ditambal: banner offline child home tak lagi menimpa `hidden` (status palsu saat daring) + baris meta sesi kini flex+gap token; gerbang `test/hidden-attribute-gate.test.ts` & `test/parent-session-meta.test.ts` |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
@@ -2100,13 +2100,90 @@ di UI dan DESIGN.md.
    **SMOKE_LOOP_OK**, `smoke-reviewer` → **SMOKE_REVIEWER_OK**, `smoke-auth`
    → **SMOKE_OK**, `npm run perf` → **PERF_OK**.
 
+## Keputusan — QA E2E eksploratif alur konten penuh + 2 perbaikan (2026-10-10)
+
+Konteks: tidak ada perubahan dari Arsyad (lokal = `origin/main`, working tree
+bersih sebelum run ini); seluruh sisa fase tetap menunggu keputusan (OQ 2/5/
+14/16/17/18/23/26/29; Phase 13), jadi langkah aman run ini = **menjalani alur
+konten penuh sebagai pengguna nyata di peramban** — satu-satunya jalur yang
+belum pernah diuji utuh sebagai satu cerita: batch JSON masuk lewat UI impor →
+review manusia → pratinjau sebagai anak → terbit → **dipakai anak di layar
+belajar** → jawaban dinilai → progress muncul di dashboard orang tua. QA E2E
+eksploratif (istilah Arsyad), bukan pembangunan fitur.
+
+1. **Alur impor batch lewat UI (VRD 12.6) terbukti utuh**: `/reviewer/aktivitas/
+   impor` → batch rusak (2 draf, draf ke-2 bertipe salah) **ditolak utuh**
+   dengan pesan "Gagal: Draf ke-2: correct_answer tidak valid: …" tanpa
+   menyimpan apa pun; batch valid (2 draf `numbers`) → redirect ke daftar, kedua
+   draf bertampil "Draf" + label "Draf AI", tidak ada yang langsung terbit.
+2. **Matriks review via UI (VRD 11.11–11.13) lengkap satu cerita**: detail draf
+   → "Kirim untuk review" → "Setujui (lulus QA)" → "Terbitkan" → status
+   "Terbit" + riwayat 3 transisi berlabel "oleh Peninjau QA" + pesan konten
+   terkunci. Pratinjau sebagai anak menilai benar (5 dari 5, "✓ Benar!" +
+   penjelasan) tanpa menulis data.
+3. **Loop belajar penerbitan nyata terbukti**: aktivitas hasil impor yang sudah
+   terbit muncul di feed area anak → layar aktivitas merender `COUNT_OBJECTS`
+   → anak menjawab benar → feedback + "Aktivitas Berikutnya" → dashboard
+   orang tua menampilkan sesi baru (jawaban tersimpan, skill dipraktikkan,
+   kekuatan 75% benar, saran latihan). `nextUrl` "ke daftar area" saat
+   aktivitas terakhir **bukan bug** — memang perilaku yang dirancang (saudara
+   habis → kembali ke area).
+4. **Dua temuan nyata diperbaiki**:
+   - **Banner offline tampil terus-menerus di child home** (temuan paling
+     berbahaya — status palsu ke anak): `.offline-banner` menyetel
+     `display: flex` pada kelas yang sama dengan atribut `hidden` yang diatur
+     JS (`banner.hidden = navigator.onLine`) — gaya penulis selalu menang atas
+     `[hidden]` bawaan browser, jadi banner "Kamu sedang offline" tampil walau
+     daring (terbukti di peramban: `navigator.onLine=true`, banner tetap
+     `display:flex`, tinggi 45px). Kini ditambah `.offline-banner[hidden]
+     { display: none }` — pola yang sudah dipakai `.archive-status`,
+     `.type-panel`, `.btn-tertiary`. Dibuktikan berbalik benar via emulasi
+     offline: daring→`display:none`, offline→`flex` + teks, daring lagi→`none`.
+   - **Baris meta sesi orang tua menempel** di `/parent/anak/:id`: tiga potong
+     inline ("n jawaban", durasi, "selesai …") di dalam satu
+     `.session-meta-row` tanpa gaya — gap induk `.session-meta` tidak
+     diwariskan ke anak inline dalam satu flex item, terbaca "1 jawaban14
+     detikselesai 10 Oktober…". Kini `.session-meta-row` flex + `gap:
+     var(--sp-2)` (terverifikasi jarak 8px antar potongan di peramban).
+5. **Gerbang regresi baru** (2 berkas test, 4 test):
+   - `test/hidden-attribute-gate.test.ts` — generik: kelas apa pun yang
+     dipakai pada elemen beratribut `hidden` (mengecualikan `aria-hidden`)
+     dan menyetel `display:` wajib memuat aturan turunan `.kelas[hidden] {
+     display: none }`; kelas berbasis `display:none` dikecualikan (netral
+     dengan bawaan browser). Plus test spesifik banner offline (atribut ada
+     sejak markup, JS mengikuti `navigator.onLine`, penawar gaya ada).
+   - `test/parent-session-meta.test.ts` — `.session-meta-row` wajib flex +
+     gap token, dan struktur tiga potong info dibakel (struktur berubah =
+     tes gagal, bukan diam-diam).
+6. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — dua berkas UI
+   berubah hanya menambal perilaku yang sudah dirancang: tidak ada elemen
+   dekoratif baru, tidak ada warna/durasi literal (hanya `var(--sp-2)`),
+   status tidak lagi tersampaikan lewat banner yang salah-tampil; keduanya
+   diverifikasi di peramban 390px (`scrollWidth == 390`, **0 animasi**) dan
+   desktop 1280px. `npm run design:lint` → **0 error, 0 warning** (1 info).
+7. **Verifikasi**: `npm test` **311 pass / 0 fail** (4 baru), `tsc --noEmit`
+   bersih, `npm run build` hijau, `smoke-loop` → **SMOKE_LOOP_OK**,
+   `smoke-reviewer` → **SMOKE_REVIEWER_OK**, `npm run perf` → **PERF_OK**
+   (attempt median 37 ms).
+8. **Temuan yang bukan bug (dicatat supaya tidak diulang investigasi)**:
+   emoji 🐴 di `document.title` peramban QA = injeksi harness browser-use,
+   bukan aplikasi (HTML asli via curl: `<title>Belajar</title>`); tombol
+   "Hapus" ganda di editor = panel tipe tersembunyi lain yang ikut terdeteksi
+   query (hanya 2 yang terlihat, aria-label terpisah per opsi/kelompok).
+9. **Sengaja tidak dikerjakan**: preferensi audio/durasi/retensi (OQ 5/18/14),
+   UI baseline (OQ 16/17), ambang mastery (OQ 23), provider AI (OQ 26), guard
+   perubahan belum disimpan (OQ 29), deployment (OQ 2/27), Phase 13 — tetap
+   menunggu keputusan Arsyad.
+
 ## Untuk run berikutnya
 
-- **Status 2026-10-10 (run ini, lanjutan)**: **OQ 15 ditutup** — katalog
-  avatar kini modul bersama `src/lib/children/avatars.ts` yang dipakai
-  validasi server (kunci di luar katalog → 400), form, dan kartu profil;
-  dikunci test konsistensi tiga arah, lihat "Keputusan — OQ 15: katalog
-  avatar bersama". Sisanya tetap menunggu keputusan/review Arsyad:
+- **Status 2026-10-10 (run ini, lanjutan)**: QA E2E eksploratif **alur konten
+  penuh** (impor batch UI → review → pratinjau → terbit → anak menjawab →
+  progress orang tua) terbukti utuh; **2 temuan diperbaiki** — banner offline
+  yang tampil terus-menerus di child home (status palsu) dan baris meta sesi
+  yang menempel di ringkasan anak — masing-masing dikunci gerbang regresi
+  baru, lihat "Keputusan — QA E2E eksploratif alur konten penuh + 2
+  perbaikan". Sisanya tetap menunggu keputusan/review Arsyad:
   - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
     jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
   - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).
@@ -2121,6 +2198,12 @@ di UI dan DESIGN.md.
     aset `public/` (temuan 18.5, dampak kecil).
   - **OQ 12/13** (kosakata learning goals + daftar bahasa) — keputusan
     konten, belum tersentuh.
+- **Status 2026-10-10 (arsip, run sebelumnya)**: **OQ 15 ditutup** — katalog
+  avatar kini modul bersama `src/lib/children/avatars.ts` yang dipakai
+  validasi server (kunci di luar katalog → 400), form, dan kartu profil;
+  dikunci test konsistensi tiga arah, lihat "Keputusan — OQ 15: katalog
+  avatar bersama". Sisanya menunggu keputusan/review Arsyad (daftar OQ sama
+  seperti di atas).
 - **Status 2026-10-10 (arsip, run sebelumnya)**: QA viewport **360px & 1280px** lolos di
   semua layar inti; dua cacat layar aktivitas anak diperbaiki — struktur
   heading (kini 1 `h1` = prompt) dan **`escapeHtml` no-op sejak awal** (lihat
