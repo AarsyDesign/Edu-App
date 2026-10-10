@@ -56,7 +56,7 @@ function baseLayout(input: ActivityRenderInput, innerHtml: string): string {
 
   <main class="activity-main">
     <section class="activity-prompt" aria-live="polite">
-      <p class="prompt-text">${escapeHtml(input.prompt)}</p>
+      <h1 class="prompt-text">${escapeHtml(input.prompt)}</h1>
     </section>
 
     <section class="activity-interaction" role="region" aria-label="Area jawaban">
@@ -83,11 +83,21 @@ function baseLayout(input: ActivityRenderInput, innerHtml: string): string {
 
 function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Serialisasi aman untuk <script type="module">. `JSON.stringify` sendiri
+ * tidak menetralkan `<`, sehingga id/konten berisi `</script>` bisa keluar
+ * dari blok skrip dan menyuntik markup baru ke layar anak. Pola yang sama
+ * dipakai halaman aktivitas (`configJson`) dan ActivityEditorForm.
+ */
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 /**
@@ -141,7 +151,7 @@ function renderTapAnswer(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initTapAnswer } from "/activity/tap-answer.js";
-initTapAnswer("${input.activityId}", ${JSON.stringify(data.items.map(i => i.id))}, ${JSON.stringify(data.items.find(i => i.isCorrect)?.id ?? "")});
+initTapAnswer(${jsonForScript(input.activityId)}, ${jsonForScript(data.items.map(i => i.id))}, ${jsonForScript(data.items.find(i => i.isCorrect)?.id ?? "")});
 </script>
 `;
 }
@@ -184,7 +194,7 @@ function renderCountObjects(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initCountObjects } from "/activity/count-objects.js";
-initCountObjects("${input.activityId}", ${data.correctAnswer});
+initCountObjects(${jsonForScript(input.activityId)}, ${jsonForScript(data.correctAnswer)});
 </script>
 `;
 }
@@ -197,8 +207,8 @@ renderers.COUNT_OBJECTS = renderCountObjects;
 
 function renderMatch(input: ActivityRenderInput): string {
   const data = input.data as MatchData;
-  const leftHtml = data.left.map((l, i) => `<div class="match-item left" data-id="${l.id}" draggable="true"><span>${escapeHtml(l.label)}</span></div>`).join("");
-  const rightHtml = data.right.map((r, i) => `<div class="match-item right" data-id="${r.id}" droppable="true"><span>${escapeHtml(r.label)}</span></div>`).join("");
+  const leftHtml = data.left.map((l, i) => `<div class="match-item left" data-id="${escapeHtml(l.id)}" draggable="true"><span>${escapeHtml(l.label)}</span></div>`).join("");
+  const rightHtml = data.right.map((r, i) => `<div class="match-item right" data-id="${escapeHtml(r.id)}" droppable="true"><span>${escapeHtml(r.label)}</span></div>`).join("");
 
   return `
 <div class="match-area">
@@ -208,7 +218,7 @@ function renderMatch(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initMatch } from "/activity/match.js";
-initMatch("${input.activityId}", ${JSON.stringify(data.correctPairs)});
+initMatch(${jsonForScript(input.activityId)}, ${jsonForScript(data.correctPairs)});
 </script>
 `;
 }
@@ -271,7 +281,7 @@ function renderSequence(input: ActivityRenderInput): string {
   const data = input.data as SequenceData;
   const displayItems = sequenceDisplayOrder(data.items, input.activityId);
   const itemsHtml = displayItems
-    .map((item) => `<div class="sequence-item" data-id="${item.id}" draggable="true"><span class="seq-label">${escapeHtml(item.label)}</span></div>`)
+    .map((item) => `<div class="sequence-item" data-id="${escapeHtml(item.id)}" draggable="true"><span class="seq-label">${escapeHtml(item.label)}</span></div>`)
     .join("");
 
   return `
@@ -281,7 +291,7 @@ function renderSequence(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initSequence } from "/activity/sequence.js";
-initSequence("${input.activityId}", ${JSON.stringify(displayItems.map((i) => i.id))});
+initSequence(${jsonForScript(input.activityId)}, ${jsonForScript(displayItems.map((i) => i.id))});
 </script>
 `;
 }
@@ -316,7 +326,7 @@ function renderIdentifyColor(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initIdentifyColor } from "/activity/identify-color.js";
-initIdentifyColor(${JSON.stringify(input.activityId)}, ${JSON.stringify(data.options.find(o => o.isCorrect)?.id ?? "")});
+initIdentifyColor(${jsonForScript(input.activityId)}, ${jsonForScript(data.options.find(o => o.isCorrect)?.id ?? "")});
 </script>
 `;
 }
@@ -347,7 +357,7 @@ function renderIdentifyShape(input: ActivityRenderInput): string {
 </div>
 <script type="module">
 import { initIdentifyShape } from "/activity/identify-shape.js";
-initIdentifyShape(${JSON.stringify(input.activityId)}, ${JSON.stringify(data.options.find(o => o.isCorrect)?.id ?? "")});
+initIdentifyShape(${jsonForScript(input.activityId)}, ${jsonForScript(data.options.find(o => o.isCorrect)?.id ?? "")});
 </script>
 `;
 }

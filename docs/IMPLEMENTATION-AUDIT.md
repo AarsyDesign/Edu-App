@@ -73,8 +73,8 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 13 | Seed 100 Activities | 🔒 gate review Arsyad | dilarang ditanam otomatis — impor batch lewat `/reviewer/aktivitas/impor` menunggu konten yang direview manusia (PRD §5/§7) |
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
-| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak"; **2026-10-09 (lanjutan)** QA E2E eksploratif **6 tipe aktivitas** (COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE) 390/768px → 4 temuan perbaikan (titik COUNT_OBJECTS, pola `visualKey`, urutan tampil SEQUENCE, penanda teks MATCH) + 11 test regresi, lihat "Keputusan — QA E2E eksploratif 6 tipe aktivitas" |
-| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px; **2026-10-09 (run ini, lanjutan)**: celah kepatuhan di child home + kartu profil ditutup — 27 hex di markup SVG → `currentColor`/`style="fill:var(--…)"`, 1 gradien latar bawaan dibuang, ikon yang ter-escape Astro diperbaiki lewat `set:html`, gerbang baru `test/visual-token-gate.test.ts` (3 test), lihat "Keputusan — child home & kartu profil: nilai visual + rendering ikon" |
+| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak"; **2026-10-09 (lanjutan)** QA E2E eksploratif **6 tipe aktivitas** (COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE) 390/768px → 4 temuan perbaikan (titik COUNT_OBJECTS, pola `visualKey`, urutan tampil SEQUENCE, penanda teks MATCH) + 11 test regresi, lihat "Keputusan — QA E2E eksploratif 6 tipe aktivitas"; **2026-10-10 (run ini)** viewport **360px (Android kecil)** & **1280px (desktop responsive fallback — QA-ACCEPTANCE Visual Review)** terukur di semua layar inti → lolos tanpa temuan layout, lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12" |
+| 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px; **2026-10-09 (run ini, lanjutan)**: celah kepatuhan di child home + kartu profil ditutup — 27 hex di markup SVG → `currentColor`/`style="fill:var(--…)"`, 1 gradien latar bawaan dibuang, ikon yang ter-escape Astro diperbaiki lewat `set:html`, gerbang baru `test/visual-token-gate.test.ts` (3 test), lihat "Keputusan — child home & kartu profil: nilai visual + rendering ikon"; **2026-10-10 (run ini)** **17.12 ditutup** — tangkapan layar representatif 13 berkas di `docs/qa-screenshots/` (9 desktop 1280px + 4 mobile 390px, fixture nama samaran) + perbaikan semantik/keamanan layar aktivitas (1 h1 = prompt; `escapeHtml` no-op sejak awal dibetulkan), lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12" |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
 | 20 | Post-MVP | 🔒 gate by evidence | dilarang otomatis |
@@ -1966,9 +1966,114 @@ nilai visual lewat token (Phase 1 hanya membuat halaman 500).
    `public/` (OQ 27), deployment (OQ 2), Phase 13 — tetap menunggu keputusan
    Arsyad.
 
+## Keputusan — QA desktop + struktur heading + escaping perender + 17.12 (2026-10-10)
+
+Konteks: tidak ada perubahan dari Arsyad (lokal = `origin/main`, working tree
+bersih); seluruh sisa fase tetap menunggu keputusan (OQ 2/5/14/16/17/18/23/26/
+29; Phase 13), jadi langkah aman run ini = menutup dua butir verifikasi yang
+belum pernah tersentuh: **QA-ACCEPTANCE "desktop responsive fallback" +
+"small Android phone"** dan **VRD 17.12 "capture representative screenshots"**.
+QA peramban menemukan **dua cacat nyata** di layar aktivitas anak; keduanya
+diperbaiki pada run yang sama.
+
+1. **Desktop 1280px lolos di semua layar** (beranda, login, dashboard, ringkasan
+   anak berdata & kosong, child home, detail area, layar aktivitas, daftar &
+   edit reviewer, 404): `scrollWidth` = lebar viewport, 0 elemen melewati
+   viewport, 0 animasi liar, tepat 1 `btn-primary` per layar (0 di daftar area
+   & layar aktivitas-pra-jawab — sesuai keputusan sebelumnya), target sentuh
+   ≥44px (radio 20px berpasangan label, pola QA 2026-10-08). **360px (Android
+   kecil)** ikut diukur untuk child home, layar aktivitas, dashboard, daftar
+   reviewer — semuanya `scrollWidth` = 360, 0 overflow. Matriks viewport kini
+   lengkap: 360 · 390 · 768 · 1280.
+2. **T1 — layar aktivitas tidak punya satu pun heading**: prompt memakai
+   `<p class="prompt-text">`, padahal cabang "Aktivitas Belum Siap" di halaman
+   yang sama sudah memakai `<h1>` — pembaca layar kehilangan titik masuk
+   navigasi di layar yang paling sering dipakai anak. Kini prompt =
+   `<h1 class="prompt-text">`; **tampilan tidak berubah** karena `.prompt-text`
+   sudah menetapkan font/ukuran/berat/margin lewat token sehingga gaya bawaan
+   `h1` (`global.css`) tidak pernah bocor. Terukur di peramban: tepat 1 `h1` =
+   prompt, di kedelapan tipe; pratinjau reviewer ikut (satu perender).
+3. **T2 — `escapeHtml()` perender adalah fungsi no-op sejak file dibuat**
+   (commit `778fd01`): mengganti `<` dengan `<`, `&` dengan `&`, `"` dengan
+   `"` — sehingga prompt, label opsi, pernyataan TRUE_FALSE, pertanyaan
+   MULTIPLE_CHOICE, serta `data-id` MATCH/SEQUENCE dari konten reviewer/draf
+   AI masuk ke HTML layar anak **tanpa dinetralkan** (bukan hanya teori:
+   probe sebelum perbaikan menampilkan tag `<b>` mentah dari prompt). Bukti
+   sebelumnya lolos karena test lama hanya memeriksa keberkasan substring
+   `prompt-text`, bukan hasil escaping-nya. Perbaikan:
+   - escaping betulan (`&amp; &lt; &gt; &quot; &#039;`) di `escapeHtml`;
+   - `data-id` MATCH/SEQUENCE ikut di-escape (dulu mentah dari payload);
+   - **`jsonForScript()`** (`JSON.stringify` + `<` → `\u003c`, pola
+     `configJson` yang sudah dipakai halaman aktivitas & editor) untuk semua
+     data yang disuntik ke `<script type="module">` — id berisi `</script>`
+     tidak lagi bisa keluar dari blok skrip.
+   Bukti peramban pasca-perbaikan: prompt berisi tag tampil literal sebagai
+   teks; loop jawab utuh di 390px (salah → "Belum tepat" + petunjuk → coba
+   lagi → benar → "Aktivitas Berikutnya"), id di atribut tetap terbaca klien.
+4. **Gerbang regresi 8 test baru**:
+   - `test/heading-structure.test.ts` (3): tepat 1 `h1` prompt untuk 8 tipe,
+     tanpa `h2`/`h3` yang mendahului hierarki, isi `h1` = prompt ter-escape,
+     dan blok `.prompt-text` wajib menetapkan properti inti lewat token
+     (gerbang "gaya bawaan heading tidak bocor").
+   - `test/renderer-escaping.test.ts` (5): prompt/label ter-escape untuk 8
+     tipe (menolak no-op), kutip pada id tidak membuka atribut baru, id
+     MATCH/SEQUENCE dinetralkan, payload `</script>` aman (hanya 1 penutup
+     skrip sah + `\u003c`), id aneh tetap identik di atribut & JSON supaya
+     runtime klien masih bisa mencocokkan jawaban anak. Payload hostil
+     disusun langsung ke `renderActivity` tanpa validator — perender wajib
+     gagal aman juga di jalur itu (defense in depth).
+5. **VRD 17.12 ditutup**: `docs/qa-screenshots/` — 13 tangkapan layar
+   representatif (9 desktop 1280px + 4 mobile 390px) + README asal-usul,
+   viewport, dan sifat fixture (nama samaran, localhost — tanpa data anak
+   sungguhan, tanpa konten Phase 13).
+6. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — checklist dijalankan
+   untuk layar yang tersentuh (layar aktivitas, semua tipe; sekunder: layar
+   yang difoto): hierarki tidak berubah (h1 = prompt; aksi tetap; 1 primary
+   per layar terukur); dekorasi tidak bertambah (0 `@keyframes` baru; satu-
+   satunya animasi terdeteksi di peramban = `slideUp` banner offline, 240ms,
+   sekali-jalan, berakhir sendiri); target sentuh tidak berubah; status teks;
+   nilai visual hanya token (perubahan murni markup semantik + escaping, tanpa
+   nilai visual baru); tidak ada audio; `prefers-reduced-motion` tidak
+   tersentuh; lolos 360/390/768/1280. `npm run design:lint` → **0 error,
+   0 warning** (1 info ringkasan token).
+7. **Verifikasi**: `npm test` **306 pass / 0 fail** (8 baru), `tsc --noEmit`
+   bersih, `npm run build` hijau, `node scripts/smoke-loop.mjs` →
+   **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
+   `npm run perf` → **PERF_OK**. Bukti peramban: server hasil build `:4413`
+   (database segar, sesi via CDP cookie — kata sandi tidak diketik), loop
+   jawab utuh, 1 `h1` di layar aktivitas, 0 overflow di 360/390/1280.
+8. **Catatan operasional (jebakan yang nyata kena run ini)**: tiga server QA
+   dari run sebelumnya masih hidup berbagi direktori `PGLITE_DIR` yang sama —
+   seeding run ini gagal ("Area belajar tidak ditemukan atau tidak aktif").
+   Sebelum `node scripts/qa-server.mjs`, pastikan tidak ada
+   `dist/server/entry.mjs` lama yang masih memakai database QA yang sama, dan
+   hentikan server QA setelah selesai.
+9. **Sengaja tidak dikerjakan**: preferensi audio/durasi/retensi (OQ 5/18/14),
+   UI baseline (OQ 16/17), ambang mastery (OQ 23), provider AI (OQ 26), guard
+   perubahan belum disimpan (OQ 29), deployment (OQ 2/27), Phase 13 — tetap
+   menunggu keputusan Arsyad.
+
 ## Untuk run berikutnya
 
-- **Status 2026-10-09 (run ini, lanjutan)**: tinjauan bagian yang belum
+- **Status 2026-10-10 (run ini)**: QA viewport **360px & 1280px** lolos di
+  semua layar inti; dua cacat layar aktivitas anak diperbaiki — struktur
+  heading (kini 1 `h1` = prompt) dan **`escapeHtml` no-op sejak awal** (lihat
+  "Keputusan — QA desktop + struktur heading + escaping perender + 17.12");
+  **VRD 17.12 ditutup** dengan `docs/qa-screenshots/` (13 tangkapan layar +
+  README). Sisanya tetap menunggu keputusan/review Arsyad:
+  - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
+    jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
+  - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).
+  - **OQ 5/18/14** — perilaku halaman pengaturan yang kini sudah ada
+    sebagai placeholder: preferensi audio, batas durasi sesi, ekspor/hapus
+    permanen (VRD 10.7/10.8/10.10 lanjutan + 14.1–14.3).
+  - **OQ 23** — ambang mastery / dasar rekomendasi bergeser (9.6).
+  - **OQ 26** — provider/model AI untuk generate batch draf (12.2).
+  - **OQ 29** — guard "ada perubahan belum disimpan" sebelum transisi
+    status reviewer (perilaku, bukan kosmetik).
+  - **OQ 2** — deployment target (Phase 19). **OQ 27** — header cache
+    aset `public/` (temuan 18.5, dampak kecil).
+- **Status 2026-10-09 (arsip, run sebelumnya)**: tinjauan bagian yang belum
   tersentuh QA menemukan rute tak dikenal memakai beranda bawaan Astro —
   kini punya `src/pages/404.astro` sendiri + gerbang test/smoke, lihat
   "Keputusan — halaman 404 tersendiri". Sebelumnya pada hari yang sama:
