@@ -428,6 +428,12 @@
   font-size: var(--fs-sm);
 }
 
+/* Status menunggu (jaringan lambat): permukaan info, bukan permukaan galat. */
+.notice--info {
+  background: var(--c-soft-blue);
+  color: var(--c-ink);
+}
+
 /* Ikon bentuk (kunci dari payload konten) — bentuk generik, bukan gambar luar */
 .shape-icon {
   display: block;

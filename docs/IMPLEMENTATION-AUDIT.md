@@ -73,7 +73,7 @@ Satu-satunya **hambatan keputusan** (bukan blocker teknis): pemilihan stack haru
 | 13 | Seed 100 Activities | 🔒 gate review Arsyad | dilarang ditanam otomatis — impor batch lewat `/reviewer/aktivitas/impor` menunggu konten yang direview manusia (PRD §5/§7) |
 | 14 | Audio and Motion (audit 14.4–14.7) | ✅ DONE | 2026-10-07 — 14.4 musik OFF default, 14.5/14.6 animasi 120–700ms (token), 14.7 prefers-reduced-motion mematikan gerak non-esensial; audit verifikasi, tanpa penemuan; 14.1–14.3 tertahan OQ 18/5 |
 | 15 | Privacy and Child Safety Review | ✅ DONE | 2026-10-07 — **15.1–15.10 lengkap**: inventory field anak (hanya minimal PRD §8), data anak tidak publik (middleware + `getChildForParent` + smoke E2E), child mode terisolasi tanpa komunitas, parent gate di semua aksi sensitif, tanpa external link child mode, tanpa purchase gateway, log tanpa PII anak (tes `privacy-logs`), analytics diminimalkan (tidak ada library tracking), retensi terdokumentasi di `PRIVACY-AUDIT.md` (arsip soft-delete, OQ 14 terbuka) |
-| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak"; **2026-10-09 (lanjutan)** QA E2E eksploratif **6 tipe aktivitas** (COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE) 390/768px → 4 temuan perbaikan (titik COUNT_OBJECTS, pola `visualKey`, urutan tampil SEQUENCE, penanda teks MATCH) + 11 test regresi, lihat "Keputusan — QA E2E eksploratif 6 tipe aktivitas"; **2026-10-10 (run ini)** viewport **360px (Android kecil)** & **1280px (desktop responsive fallback — QA-ACCEPTANCE Visual Review)** terukur di semua layar inti → lolos tanpa temuan layout, lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12"; **2026-10-10 (run ini, lanjutan)** QA E2E eksploratif **alur konten penuh** (impor batch UI → review → pratinjau → terbit → anak menjawab → progress orang tua) terbukti utuh + 2 temuan diperbaiki (banner offline selalu tampil, baris meta sesi menempel) + 4 test regresi baru, lihat "Keputusan — QA E2E eksploratif alur konten penuh + 2 perbaikan" |
+| 16 | Quality Assurance | ✅ DONE | 2026-10-07 (commit `0a01b42`) — 16.1–16.18 dipenuhi lewat TDD lintas Phase 0–15; **2026-10-09 (run ini)** QA E2E eksploratif layar anak (16.10–16.13 viewport/sentuh) → 4 temuan diperbaiki, lihat "Keputusan — QA E2E eksploratif layar anak"; **2026-10-09 (lanjutan)** QA E2E eksploratif **6 tipe aktivitas** (COUNT_OBJECTS, MATCH, SEQUENCE, IDENTIFY_COLOR, IDENTIFY_SHAPE, MULTIPLE_CHOICE) 390/768px → 4 temuan perbaikan (titik COUNT_OBJECTS, pola `visualKey`, urutan tampil SEQUENCE, penanda teks MATCH) + 11 test regresi, lihat "Keputusan — QA E2E eksploratif 6 tipe aktivitas"; **2026-10-10 (run ini)** viewport **360px (Android kecil)** & **1280px (desktop responsive fallback — QA-ACCEPTANCE Visual Review)** terukur di semua layar inti → lolos tanpa temuan layout, lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12"; **2026-10-10 (run ini, lanjutan)** QA E2E eksploratif **alur konten penuh** (impor batch UI → review → pratinjau → terbit → anak menjawab → progress orang tua) terbukti utuh + 2 temuan diperbaiki (banner offline selalu tampil, baris meta sesi menempel) + 4 test regresi baru, lihat "Keputusan — QA E2E eksploratif alur konten penuh + 2 perbaikan"; **2026-10-10 (run ini, lanjutan)** VRD **16.15 (jaringan lambat)** diukur di peramban (respons tertunda 4–5 detik) → 2 temuan diperbaiki di runtime layar aktivitas (tak ada teks status menunggu + tombol "Aktivitas Berikutnya" menahan navigasi 5,1 detik) + 4 test regresi baru, lihat "Keputusan — QA E2E eksploratif jaringan lambat (VRD 16.15)" |
 | 17 | Anti-Slop Visual QA | ✅ DONE | 2026-10-07 (commit `1931538`) — semua layar meresponsive, hierarki tunggal per layar, sentuh target ≥44px, nilai visual hanya token, tanpa hex hardcoded, tanpa durasi ms hardcoded, tanpa animasi perpetual, tanpa karakter manusia/hewan, musik OFF default, prefers-reduced-motion lewat token, `npx -y @google/design.md lint DESIGN.md` → 0 error 0 warning; **2026-10-08 (run ini)** OQ 10 ditutup: token `--c-muted-ink` `#5C665E` lolos WCAG AA di semua permukaan pemakaian + `test/color-contrast.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif 5 layar reviewer di browser (390/768px) → perbaikan hierarki aksi primary + skip-link 44px, dikunci `test/anti-slop-action-hierarchy.test.ts`; **2026-10-08 (run ini)** QA E2E eksploratif layar orang tua (390/768px) → **OQ 28 ditutup** (CTA header jadi sekunder) + hover kartu profil lolos AA; **2026-10-08 (run ini)** **OQ 30 ditutup**: banner offline child home `--c-soft-peach` + `--c-ink` (10,07:1) + gerbang pasangan `background`+`color` seluruh `src/` (85 pasangan ≥4,5:1), dibuktikan offline-emulation 390/768px; **2026-10-09 (run ini, lanjutan)**: celah kepatuhan di child home + kartu profil ditutup — 27 hex di markup SVG → `currentColor`/`style="fill:var(--…)"`, 1 gradien latar bawaan dibuang, ikon yang ter-escape Astro diperbaiki lewat `set:html`, gerbang baru `test/visual-token-gate.test.ts` (3 test), lihat "Keputusan — child home & kartu profil: nilai visual + rendering ikon"; **2026-10-10 (run ini)** **17.12 ditutup** — tangkapan layar representatif 13 berkas di `docs/qa-screenshots/` (9 desktop 1280px + 4 mobile 390px, fixture nama samaran) + perbaikan semantik/keamanan layar aktivitas (1 h1 = prompt; `escapeHtml` no-op sejak awal dibetulkan), lihat "Keputusan — QA desktop + struktur heading + escaping perender + 17.12"; **2026-10-10 (run ini, lanjutan)** dua temuan anti-slop dari QA alur konten penuh ditambal: banner offline child home tak lagi menimpa `hidden` (status palsu saat daring) + baris meta sesi kini flex+gap token; gerbang `test/hidden-attribute-gate.test.ts` & `test/parent-session-meta.test.ts` |
 | 18 | Performance | ✅ DONE | 2026-10-07 (run ini) — 18.1–18.8 terukur: `npm run perf` (`scripts/perf-measure.mjs`) + QA browser 390px/768px; rincian di "Keputusan Phase 18"; dua catatan jujur: `/activity/runtime.js` tanpa header cache panjang (OQ 27) & 18.7 diukur sebagai proxy heap/DOM, bukan perangkat rendah sungguhan |
 | 19 | Deployment | ⏸ menunggu OQ 2 | deployment target belum diputuskan |
@@ -2175,15 +2175,93 @@ eksploratif (istilah Arsyad), bukan pembangunan fitur.
    perubahan belum disimpan (OQ 29), deployment (OQ 2/27), Phase 13 — tetap
    menunggu keputusan Arsyad.
 
+## Keputusan — QA E2E eksploratif jaringan lambat (VRD 16.15, 2026-10-10, run ini)
+
+Konteks: seluruh fase tersisa tertahan keputusan produk; **16.15 "Test slow
+network"** adalah satu-satunya butir VRD yang belum punya bukti dan tidak
+meminta keputusan mana pun — murni pengukuran di jalur kritis anak. Semua
+angka di bawah **diukur**, bukan ditebak, dengan respons sengaja ditunda
+4–5 detik di klien (pembungkus `fetch` di halaman, tanpa menyentuh kode
+aplikasi untuk keperluan QA).
+
+1. **Dua temuan di runtime layar aktivitas** (`public/activity/runtime.js`,
+   dipakai bersama produksi + pratinjau reviewer):
+   - **(a) Saat menunggu server tidak ada satu pun teks status.** Terukur:
+     0,4–4 detik setelah anak menjawab, layar hanya menunjukkan tombol mati
+     (`disabled`), `.notice` `null`, `[role="status"]` `null` — dan cincin
+     kemajuan sudah melompat ke **100%**. Dua pelanggaran: DESIGN-SYSTEM §11
+     mewajibkan keadaan *loading* tiap layar, dan angka 100% **mengklaim
+     penyelesaian yang belum diperiksa server** (skill antislop-ui:
+     *Evidence over claims*).
+   - **(b) "Aktivitas Berikutnya"/"Beranda" menunggu balasan penutupan sesi
+     sebelum pindah halaman.** Terukur: dengan `/api/session/complete`
+     ditunda 5 detik, anak **menetap 5,1 detik** di layar yang sama setelah
+     menekan tombol besar — tanpa umpan balik apa pun. Permintaan itu sudah
+     memakai `keepalive: true`, jadi sebenarnya tidak perlu ditunggu.
+2. **Perbaikan (murni keadaan & kejujuran, tanpa perilaku produk baru)**:
+   - `showNotice(root, message, tone)` kini menerima nada; `"info"` memakai
+     varian `.notice--info` (`--c-soft-blue` + `--c-ink` — mengikuti pola
+     `info-note` DESIGN.md), tanpa `tone` tetap peach seperti semula.
+   - `submitAnswer` menampilkan **"Memeriksa jawaban…"** (`role="status"`)
+     sejak permintaan dikirim, dan **tidak lagi menyetel cincin 100% di
+     muka**; 100% kini hanya diberikan bersama umpan balik di `showFeedback`
+     (yang juga membersihkan pesan menunggu — keduanya tak pernah tampil
+     bersamaan).
+   - `leaveSession` mengirim penutupan sesi (tetap `keepalive`) lalu
+     **langsung navigasi** tanpa menunggu balasan; cabang pratinjau reviewer
+     (`cfg.preview === true`) tidak berubah perilakunya.
+3. **Bukti sesudah perbaikan** (peramban, server hasil build `:4410`,
+   sesi orang tua dipasang via CDP `Network.setCookie`):
+   - **390px** saat menunggu: notice `"Memeriksa jawaban…"` + `role="status"`,
+     latar `rgb(221, 234, 245)` (`--c-soft-blue`) + teks `rgb(38, 51, 45)`
+     (`--c-ink`), cincin **0%**, `aria-valuenow="0"`, semua kontrol disabled,
+     `scrollWidth` 390, **0 animasi**; sesudah balasan: notice hilang,
+     `"✓ Benar!"` + penjelasan, cincin 100%, tombol berikutnya tampil.
+   - **Jawaban salah + coba lagi (768px)**: `"✗ Belum tepat."` di permukaan
+     peach, tombol Coba lagi tampil, cincin 100%; setelah "Coba lagi" umpan
+     balik hilang, cincin kembali 0%, kontrol aktif kembali; 0 animasi.
+   - **Navigasi**: klik "Aktivitas Berikutnya" dengan penutupan sesi tertunda
+     5 detik → pindah halaman dalam **0,11 detik** (sebelumnya 5,1 detik);
+     penutupan sesi tetap tercatat di server lewat `keepalive` — terbukti dari
+     ringkasan orang tua: `sessions.completed` bertambah dan `lastEndedAt`
+     terisi sesaat setelah klik.
+   - **Pratinjau reviewer (runtime bersama)**: umpan balik + navigasi kembali
+     ke detail tetap berfungsi (tanpa data anak, tanpa sesi).
+4. **Gerbang regresi baru `test/slow-network-states.test.ts` (4 test)** —
+   mengunci temuan itu sebagai teks: ada pesan menunggu yang muncul
+   **sebelum** permintaan dikirim dan memakai nada info; `setProgress(root,
+   100)` **hanya ada satu titik**, di dalam `showFeedback`; `leaveSession`
+   memuat `keepalive: true` tapi **tanpa `await` / `.then(`** yang menahan
+   navigasi; varian `.notice--info` hanya token (tanpa heksa, tanpa durasi
+   ms) dan salinan ke anak bebas jargon internal.
+5. **Anti-slop (DESIGN-SYSTEM §12 + skill antislop-ui)** — dua berkas UI
+   berubah hanya menambal keadaan yang memang diwajibkan (§11 loading state):
+   hierarki layar tidak berubah (tombol jawaban tetap satu aksi utama, tak
+   ada primary baru); dekorasi tidak bertambah (0 `@keyframes`, **0 animasi
+   terukur** di 390px & 768px); target sentuh tidak tersentuh; status kini
+   **lebih** tidak bergantung warna (ada teks menunggu + `role="status"`);
+   nilai visual hanya token (`--c-soft-blue`/`--c-ink`, ikut gerbang pasangan
+   kontras `test/color-contrast.test.ts`); audio tidak ada di layar ini;
+   reduced-motion tidak berubah. `node @google/design.md lint DESIGN.md` →
+   **0 error, 0 warning** (1 info ringkasan token).
+6. **Verifikasi**: `npm test` **315 pass / 0 fail** (4 baru), `tsc --noEmit`
+   bersih, `npm run build` hijau, `node scripts/smoke-loop.mjs` →
+   **SMOKE_LOOP_OK**, `node scripts/smoke-reviewer.mjs` → **SMOKE_REVIEWER_OK**,
+   `npm run perf` → **PERF_OK** (attempt median 26 ms).
+7. **Temuan yang bukan bug** (dicatat supaya tidak diinvestigasi ulang):
+   sekali di sesi QA, halaman anak dialihkan ke `/login` tepat setelah
+   `Emulation.setDeviceMetricsOverride` dijalankan peramban CDP — tidak
+   terulang pada 8 kali muat ulang berikutnya (`/learn` & `/parent` tetap
+   200 dengan sesi yang sama) dan tidak terjadi lewat jalur biasa; dianggap
+   artefak pengatur cookie harness, bukan aplikasi.
+
 ## Untuk run berikutnya
 
-- **Status 2026-10-10 (run ini, lanjutan)**: QA E2E eksploratif **alur konten
-  penuh** (impor batch UI → review → pratinjau → terbit → anak menjawab →
-  progress orang tua) terbukti utuh; **2 temuan diperbaiki** — banner offline
-  yang tampil terus-menerus di child home (status palsu) dan baris meta sesi
-  yang menempel di ringkasan anak — masing-masing dikunci gerbang regresi
-  baru, lihat "Keputusan — QA E2E eksploratif alur konten penuh + 2
-  perbaikan". Sisanya tetap menunggu keputusan/review Arsyad:
+- **Status 2026-10-10 (run ini, lanjutan)**: **VRD 16.15 (jaringan lambat)
+  ditutup** — dua temuan diukur lalu diperbaiki di runtime layar aktivitas
+  (status menunggu berupa teks + navigasi tak lagi ditahan), lihat
+  "Keputusan — QA E2E eksploratif jaringan lambat (VRD 16.15)". Sisanya
+  tetap menunggu keputusan/review Arsyad:
   - **Phase 13 (seed 100 aktivitas)** — konten wajib lewat review manusia;
     jalur impor batch (`/reviewer/aktivitas/impor`) sudah siap.
   - **OQ 16/17** — UI onboarding baseline (butuh titik masuk + konten ≥5).

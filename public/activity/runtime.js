@@ -44,8 +44,13 @@ function interactionControls(root, disabled) {
   }
 }
 
-/** Pesan status singkat di dalam area jawaban (role=status, bukan warna saja). */
-export function showNotice(root, message) {
+/**
+ * Pesan status singkat di dalam area jawaban (role=status, bukan warna saja).
+ *
+ * `tone` "info" memakai permukaan biru lembut (menunggu, bukan galat); tanpa
+ * `tone` memakai permukaan peach seperti sebelumnya (galat/peringatan).
+ */
+export function showNotice(root, message, tone) {
   const scope = root.querySelector(".activity-interaction");
   if (!scope) return;
   let notice = scope.querySelector(".notice");
@@ -55,6 +60,7 @@ export function showNotice(root, message) {
     notice.setAttribute("role", "status");
     scope.prepend(notice);
   }
+  notice.classList.toggle("notice--info", tone === "info");
   notice.textContent = message;
 }
 
@@ -94,6 +100,8 @@ function showFeedback(root, data) {
   const next = root.querySelector(".btn-next");
   if (!feedback || !content || !retry || !next) return;
 
+  clearNotice(root);
+  setProgress(root, 100);
   content.textContent = "";
   content.appendChild(buildFeedbackContent(data));
   feedback.dataset.state = data.correct ? "correct" : "incorrect";
@@ -150,7 +158,10 @@ export async function submitAnswer(activityId, answer) {
 
   busy = true;
   interactionControls(root, true);
-  setProgress(root, 100);
+  // Selama jawaban dikirim, anak melihat status menunggu berupa teks (VRD
+  // 16.15) — bukan tombol mati tanpa keterangan. Cincin kemajuan sengaja
+  // TIDAK diisi 100% di sini: jawaban belum diperiksa server.
+  showNotice(root, "Memeriksa jawaban…", "info");
 
   if (!url) {
     busy = false;
@@ -200,15 +211,18 @@ export async function submitAnswer(activityId, answer) {
   }
 }
 
-/** Tutup sesi (VRD 7.7) lalu pindah halaman — tetap jalan saat jaringan lemah. */
+/**
+ * Tutup sesi (VRD 7.7) lalu pindah halaman.
+ *
+ * Jaringan lambat (VRD 16.15) tidak boleh menahan anak di layar yang sama:
+ * permintaan penutupan sesi dikirim dengan `keepalive` (tetap hidup setelah
+ * halaman berganti) dan navigasi dijalankan segera, tanpa menunggu balasan.
+ */
 export function leaveSession(targetUrl) {
   const cfg = readConfig();
-  const done = () => {
-    window.location.assign(targetUrl);
-  };
   // Pratinjau reviewer (VRD 11.12): tidak ada sesi anak untuk ditutup.
   if (cfg.preview === true) {
-    done();
+    window.location.assign(targetUrl);
     return;
   }
   try {
@@ -218,12 +232,11 @@ export function leaveSession(targetUrl) {
       body: JSON.stringify({ sessionId: cfg.sessionId, childId: cfg.childId }),
       credentials: "same-origin",
       keepalive: true,
-    })
-      .catch(() => {})
-      .then(done, done);
+    }).catch(() => {});
   } catch {
-    done();
+    /* jaringan bermasalah: navigasi tetap dijalankan */
   }
+  window.location.assign(targetUrl);
 }
 
 /** Sambungkan tombol navigasi + keadaan halaman (dipanggil halaman SSR). */
